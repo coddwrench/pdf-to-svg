@@ -1,0 +1,443 @@
+/*
+
+This file is part of the iText (R) project.
+Copyright (c) 1998-2021 iText Group NV
+Authors: Bruno Lowagie, Paulo Soares, et al.
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License version 3
+as published by the Free Software Foundation with the addition of the
+following permission added to Section 15 as permitted in Section 7(a):
+FOR ANY PART OF THE COVERED WORK IN WHICH THE COPYRIGHT IS OWNED BY
+ITEXT GROUP. ITEXT GROUP DISCLAIMS THE WARRANTY OF NON INFRINGEMENT
+OF THIRD PARTY RIGHTS
+
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+or FITNESS FOR A PARTICULAR PURPOSE.
+See the GNU Affero General Public License for more details.
+You should have received a copy of the GNU Affero General Public License
+along with this program; if not, see http://www.gnu.org/licenses or write to
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA, 02110-1301 USA, or download the license from the following URL:
+http://itextpdf.com/terms-of-use/
+
+The interactive user interfaces in modified source and object code versions
+of this program must display Appropriate Legal Notices, as required under
+Section 5 of the GNU Affero General Public License.
+
+In accordance with Section 7(b) of the GNU Affero General Public License,
+a covered work must retain the producer line in every PDF that is created
+or manipulated using iText.
+
+You can be released from the requirements of the license by purchasing
+a commercial license. Buying such a license is mandatory as soon as you
+develop commercial activities involving the iText software without
+disclosing the source code of your own applications.
+These activities include: offering paid services to customers as an ASP,
+serving PDFs on the fly in a web application, shipping iText with a closed
+source product.
+
+For more information, please contact iText Software Corp. at this
+address: sales@itextpdf.com
+*/
+
+using System.Collections.Generic;
+using System.IO;
+using IText.IO;
+using IText.IO.Source;
+using IText.IO.Util;
+using IText.Logger;
+
+namespace IText.Kernel.Pdf {
+    public class PdfWriter : PdfOutputStream {
+        private static readonly byte[] obj = ByteUtils.GetIsoBytes(" obj\n");
+
+        private static readonly byte[] endobj = ByteUtils.GetIsoBytes("\nendobj\n");
+
+        // For internal usage only
+        private PdfOutputStream duplicateStream = null;
+
+        protected internal WriterProperties properties;
+
+        /// <summary>Currently active object stream.</summary>
+        /// <remarks>
+        /// Currently active object stream.
+        /// Objects are written to the object stream if fullCompression set to true.
+        /// </remarks>
+        internal PdfObjectStream objectStream;
+
+        /// <summary>Is used to avoid duplications on object copying.</summary>
+        /// <remarks>
+        /// Is used to avoid duplications on object copying.
+        /// It stores hashes of the indirect reference from the source document and the corresponding
+        /// indirect references of the copied objects from the new document.
+        /// </remarks>
+        private IDictionary<PdfIndirectReference, PdfIndirectReference> copiedObjects = new LinkedDictionary<PdfIndirectReference
+	        , PdfIndirectReference>();
+
+        /// <summary>Is used in smart mode to serialize and store serialized objects content.</summary>
+        private SmartModePdfObjectsSerializer smartModeSerializer = new SmartModePdfObjectsSerializer();
+
+        //forewarned is forearmed
+        protected internal bool isUserWarnedAboutAcroFormCopying;
+
+        /// <summary>Create a PdfWriter writing to the passed File and with default writer properties.</summary>
+        /// <param name="file">File to write to.</param>
+        public PdfWriter(FileInfo file)
+            : this(file.FullName) {
+        }
+
+        /// <summary>Create a PdfWriter writing to the passed outputstream and with default writer properties.</summary>
+        /// <param name="os">Outputstream to write to.</param>
+        public PdfWriter(Stream os)
+            : this(os, new WriterProperties()) {
+        }
+
+        public PdfWriter(Stream os, WriterProperties properties)
+            : base(FileUtil.WrapWithBufferedOutputStream(os)) {
+            this.properties = properties;
+            if (properties.debugMode) {
+            }
+        }
+
+        /// <summary>Create a PdfWriter writing to the passed filename and with default writer properties.</summary>
+        /// <param name="filename">filename of the resulting pdf.</param>
+        public PdfWriter(string filename)
+            : this(filename, new WriterProperties()) {
+        }
+
+        /// <summary>Create a PdfWriter writing to the passed filename and using the passed writer properties.</summary>
+        /// <param name="filename">filename of the resulting pdf.</param>
+        /// <param name="properties">writerproperties to use.</param>
+        public PdfWriter(string filename, WriterProperties properties)
+            : this(FileUtil.GetBufferedOutputStream(filename), properties) {
+        }
+
+        /// <summary>Indicates if to use full compression mode.</summary>
+        /// <returns>true if to use full compression, false otherwise.</returns>
+        public virtual bool IsFullCompression() {
+            return properties.isFullCompression != null ? (bool)properties.isFullCompression : false;
+        }
+
+        /// <summary>Gets default compression level for @see PdfStream.</summary>
+        /// <remarks>
+        /// Gets default compression level for @see PdfStream.
+        /// For more details @see
+        /// <see cref="DeflaterOutputStream"/>.
+        /// </remarks>
+        /// <returns>compression level.</returns>
+        public virtual int GetCompressionLevel() {
+            return properties.compressionLevel;
+        }
+
+        /// <summary>Sets default compression level for @see PdfStream.</summary>
+        /// <remarks>
+        /// Sets default compression level for @see PdfStream.
+        /// For more details @see
+        /// <see cref="DeflaterOutputStream"/>.
+        /// </remarks>
+        /// <param name="compressionLevel">compression level.</param>
+        /// <returns>
+        /// this
+        /// <see cref="PdfWriter"/>
+        /// instance
+        /// </returns>
+        public virtual PdfWriter SetCompressionLevel(int compressionLevel) {
+            properties.SetCompressionLevel(compressionLevel);
+            return this;
+        }
+
+        /// <summary>Sets the smart mode.</summary>
+        /// <remarks>
+        /// Sets the smart mode.
+        /// <br />
+        /// In smart mode when resources (such as fonts, images,...) are
+        /// encountered, a reference to these resources is saved
+        /// in a cache, so that they can be reused.
+        /// This requires more memory, but reduces the file size
+        /// of the resulting PDF document.
+        /// </remarks>
+        /// <param name="smartMode">True for enabling smart mode.</param>
+        /// <returns>
+        /// this
+        /// <see cref="PdfWriter"/>
+        /// instance
+        /// </returns>
+        public virtual PdfWriter SetSmartMode(bool smartMode) {
+            properties.smartMode = smartMode;
+            return this;
+        }
+
+        /// <summary>Gets the current object stream.</summary>
+        /// <returns>object stream.</returns>
+        internal virtual PdfObjectStream GetObjectStream() {
+            if (!IsFullCompression()) {
+                return null;
+            }
+            if (objectStream == null) {
+                objectStream = new PdfObjectStream(document);
+            }
+            else {
+                if (objectStream.GetSize() == PdfObjectStream.MAX_OBJ_STREAM_SIZE) {
+                    objectStream.Flush();
+                    objectStream = new PdfObjectStream(objectStream);
+                }
+            }
+            return objectStream;
+        }
+
+        protected internal virtual void InitCryptoIfSpecified(PdfVersion version) {
+            var encryptProps = properties.encryptionProperties;
+            if (properties.IsStandardEncryptionUsed()) {
+                crypto = new PdfEncryption(encryptProps.userPassword, encryptProps.ownerPassword, encryptProps.standardEncryptPermissions
+                    , encryptProps.encryptionAlgorithm, ByteUtils.GetIsoBytes(document.GetOriginalDocumentId().GetValue
+                    ()), version);
+            }
+            else {
+                if (properties.IsPublicKeyEncryptionUsed()) {
+                    crypto = new PdfEncryption(encryptProps.publicCertificates, encryptProps.publicKeyEncryptPermissions, encryptProps
+                        .encryptionAlgorithm, version);
+                }
+            }
+        }
+
+        /// <summary>Flushes the object.</summary>
+        /// <remarks>Flushes the object. Override this method if you want to define custom behaviour for object flushing.
+        ///     </remarks>
+        /// <param name="pdfObject">object to flush.</param>
+        /// <param name="canBeInObjStm">indicates whether object can be placed into object stream.</param>
+        protected internal virtual void FlushObject(PdfObject pdfObject, bool canBeInObjStm) {
+            var indirectReference = pdfObject.GetIndirectReference();
+            if (IsFullCompression() && canBeInObjStm) {
+                var objectStream = GetObjectStream();
+                objectStream.AddObject(pdfObject);
+            }
+            else {
+                indirectReference.SetOffset(GetCurrentPos());
+                WriteToBody(pdfObject);
+            }
+            indirectReference.SetState(PdfObject.FLUSHED).ClearState(PdfObject.MUST_BE_FLUSHED);
+            switch (pdfObject.GetObjectType()) {
+                case PdfObject.BOOLEAN:
+                case PdfObject.NAME:
+                case PdfObject.NULL:
+                case PdfObject.NUMBER:
+                case PdfObject.STRING: {
+                    ((PdfPrimitiveObject)pdfObject).content = null;
+                    break;
+                }
+
+                case PdfObject.ARRAY: {
+                    var array = ((PdfArray)pdfObject);
+                    MarkArrayContentToFlush(array);
+                    array.ReleaseContent();
+                    break;
+                }
+
+                case PdfObject.STREAM:
+                case PdfObject.DICTIONARY: {
+                    var dictionary = ((PdfDictionary)pdfObject);
+                    MarkDictionaryContentToFlush(dictionary);
+                    dictionary.ReleaseContent();
+                    break;
+                }
+
+                case PdfObject.INDIRECT_REFERENCE: {
+                    MarkObjectToFlush(((PdfIndirectReference)pdfObject).GetRefersTo(false));
+                    break;
+                }
+            }
+        }
+
+        protected internal virtual PdfObject CopyObject(PdfObject obj, PdfDocument documentTo, bool allowDuplicating
+            ) {
+            if (obj is PdfIndirectReference) {
+                obj = ((PdfIndirectReference)obj).GetRefersTo();
+            }
+            if (obj == null) {
+                obj = PdfNull.PDF_NULL;
+            }
+            if (CheckTypeOfPdfDictionary(obj, PdfName.Catalog)) {
+                var logger = LogManager.GetLogger(typeof(PdfReader));
+                logger.Warn(LogMessageConstant.MAKE_COPY_OF_CATALOG_DICTIONARY_IS_FORBIDDEN);
+                obj = PdfNull.PDF_NULL;
+            }
+            var indirectReference = obj.GetIndirectReference();
+            var tryToFindDuplicate = !allowDuplicating && indirectReference != null;
+            if (tryToFindDuplicate) {
+                var copiedIndirectReference = copiedObjects.Get(indirectReference);
+                if (copiedIndirectReference != null) {
+                    return copiedIndirectReference.GetRefersTo();
+                }
+            }
+            SerializedObjectContent serializedContent = null;
+            if (properties.smartMode && tryToFindDuplicate && !CheckTypeOfPdfDictionary(obj, PdfName.Page)) {
+                serializedContent = smartModeSerializer.SerializeObject(obj);
+                var objectRef = smartModeSerializer.GetSavedSerializedObject(serializedContent);
+                if (objectRef != null) {
+                    copiedObjects.Put(indirectReference, objectRef);
+                    return objectRef.refersTo;
+                }
+            }
+            var newObject = obj.NewInstance();
+            if (indirectReference != null) {
+                var indRef = newObject.MakeIndirect(documentTo).GetIndirectReference();
+                if (serializedContent != null) {
+                    smartModeSerializer.SaveSerializedObject(serializedContent, indRef);
+                }
+                copiedObjects.Put(indirectReference, indRef);
+            }
+            newObject.CopyContent(obj, documentTo);
+            return newObject;
+        }
+
+        /// <summary>Writes object to body of PDF document.</summary>
+        /// <param name="pdfObj">object to write.</param>
+        protected internal virtual void WriteToBody(PdfObject pdfObj) {
+            if (crypto != null) {
+                crypto.SetHashKeyForNextObject(pdfObj.GetIndirectReference().GetObjNumber(), pdfObj.GetIndirectReference()
+                    .GetGenNumber());
+            }
+            WriteInteger(pdfObj.GetIndirectReference().GetObjNumber()).WriteSpace().WriteInteger(pdfObj.GetIndirectReference
+                ().GetGenNumber()).WriteBytes(obj);
+            Write(pdfObj);
+            WriteBytes(endobj);
+        }
+
+        /// <summary>Writes PDF header.</summary>
+        protected internal virtual void WriteHeader() {
+            WriteByte('%').WriteString(document.GetPdfVersion().ToString()).WriteString("\n%\u00e2\u00e3\u00cf\u00d3\n"
+                );
+        }
+
+        /// <summary>Flushes all objects which have not been flushed yet.</summary>
+        /// <param name="forbiddenToFlush">
+        /// a
+        /// <see cref="Java.Util.Set{E}"/>
+        /// of
+        /// <see cref="PdfIndirectReference">references</see>
+        /// that are forbidden to be flushed
+        /// automatically.
+        /// </param>
+        protected internal virtual void FlushWaitingObjects(ICollection<PdfIndirectReference> forbiddenToFlush) {
+            var xref = document.GetXref();
+            var needFlush = true;
+            while (needFlush) {
+                needFlush = false;
+                for (var i = 1; i < xref.Size(); i++) {
+                    var indirectReference = xref.Get(i);
+                    if (indirectReference != null && !indirectReference.IsFree() && indirectReference.CheckState(PdfObject.MUST_BE_FLUSHED
+                        ) && !forbiddenToFlush.Contains(indirectReference)) {
+                        var obj = indirectReference.GetRefersTo(false);
+                        if (obj != null) {
+                            obj.Flush();
+                            needFlush = true;
+                        }
+                    }
+                }
+            }
+            if (objectStream != null && objectStream.GetSize() > 0) {
+                objectStream.Flush();
+                objectStream = null;
+            }
+        }
+
+        /// <summary>Flushes all modified objects which have not been flushed yet.</summary>
+        /// <remarks>Flushes all modified objects which have not been flushed yet. Used in case incremental updates.</remarks>
+        /// <param name="forbiddenToFlush">
+        /// a
+        /// <see cref="Java.Util.Set{E}"/>
+        /// of
+        /// <see cref="PdfIndirectReference">references</see>
+        /// that are forbidden to be flushed
+        /// automatically.
+        /// </param>
+        protected internal virtual void FlushModifiedWaitingObjects(ICollection<PdfIndirectReference> forbiddenToFlush
+            ) {
+            var xref = document.GetXref();
+            for (var i = 1; i < xref.Size(); i++) {
+                var indirectReference = xref.Get(i);
+                if (null != indirectReference && !indirectReference.IsFree() && !forbiddenToFlush.Contains(indirectReference
+                    )) {
+                    var isModified = indirectReference.CheckState(PdfObject.MODIFIED);
+                    if (isModified) {
+                        var obj = indirectReference.GetRefersTo(false);
+                        if (obj != null) {
+                            if (!obj.Equals(objectStream)) {
+                                obj.Flush();
+                            }
+                        }
+                    }
+                }
+            }
+            if (objectStream != null && objectStream.GetSize() > 0) {
+                objectStream.Flush();
+                objectStream = null;
+            }
+        }
+
+        /// <summary>Flush all copied objects.</summary>
+        /// <param name="docId">id of the source document</param>
+        internal virtual void FlushCopiedObjects(long docId) {
+            IList<PdfIndirectReference> remove = new List<PdfIndirectReference>();
+            foreach (var copiedObject in copiedObjects) {
+                var document = copiedObject.Key.GetDocument();
+                if (document != null && document.GetDocumentId() == docId) {
+                    if (copiedObject.Value.refersTo != null) {
+                        copiedObject.Value.refersTo.Flush();
+                        remove.Add(copiedObject.Key);
+                    }
+                }
+            }
+            foreach (var ird in remove) {
+                copiedObjects.JRemove(ird);
+            }
+        }
+
+        private void MarkArrayContentToFlush(PdfArray array) {
+            for (var i = 0; i < array.Size(); i++) {
+                MarkObjectToFlush(array.Get(i, false));
+            }
+        }
+
+        private void MarkDictionaryContentToFlush(PdfDictionary dictionary) {
+            foreach (var item in dictionary.Values(false)) {
+                MarkObjectToFlush(item);
+            }
+        }
+
+        private void MarkObjectToFlush(PdfObject pdfObject) {
+            if (pdfObject != null) {
+                var indirectReference = pdfObject.GetIndirectReference();
+                if (indirectReference != null) {
+                    if (!indirectReference.CheckState(PdfObject.FLUSHED)) {
+                        indirectReference.SetState(PdfObject.MUST_BE_FLUSHED);
+                    }
+                }
+                else {
+                    if (pdfObject.GetObjectType() == PdfObject.INDIRECT_REFERENCE) {
+                        if (!pdfObject.CheckState(PdfObject.FLUSHED)) {
+                            pdfObject.SetState(PdfObject.MUST_BE_FLUSHED);
+                        }
+                    }
+                    else {
+                        if (pdfObject.GetObjectType() == PdfObject.ARRAY) {
+                            MarkArrayContentToFlush((PdfArray)pdfObject);
+                        }
+                        else {
+                            if (pdfObject.GetObjectType() == PdfObject.DICTIONARY) {
+                                MarkDictionaryContentToFlush((PdfDictionary)pdfObject);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        private static bool CheckTypeOfPdfDictionary(PdfObject dictionary, PdfName expectedType) {
+            return dictionary.IsDictionary() && expectedType.Equals(((PdfDictionary)dictionary).GetAsName(PdfName.Type
+                ));
+        }
+    }
+}

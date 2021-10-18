@@ -1,0 +1,459 @@
+/*
+
+This file is part of the iText (R) project.
+Copyright (c) 1998-2021 iText Group NV
+Authors: Bruno Lowagie, Paulo Soares, et al.
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License version 3
+as published by the Free Software Foundation with the addition of the
+following permission added to Section 15 as permitted in Section 7(a):
+FOR ANY PART OF THE COVERED WORK IN WHICH THE COPYRIGHT IS OWNED BY
+ITEXT GROUP. ITEXT GROUP DISCLAIMS THE WARRANTY OF NON INFRINGEMENT
+OF THIRD PARTY RIGHTS
+
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+or FITNESS FOR A PARTICULAR PURPOSE.
+See the GNU Affero General Public License for more details.
+You should have received a copy of the GNU Affero General Public License
+along with this program; if not, see http://www.gnu.org/licenses or write to
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA, 02110-1301 USA, or download the license from the following URL:
+http://itextpdf.com/terms-of-use/
+
+The interactive user interfaces in modified source and object code versions
+of this program must display Appropriate Legal Notices, as required under
+Section 5 of the GNU Affero General Public License.
+
+In accordance with Section 7(b) of the GNU Affero General Public License,
+a covered work must retain the producer line in every PDF that is created
+or manipulated using iText.
+
+You can be released from the requirements of the license by purchasing
+a commercial license. Buying such a license is mandatory as soon as you
+develop commercial activities involving the iText software without
+disclosing the source code of your own applications.
+These activities include: offering paid services to customers as an ASP,
+serving PDFs on the fly in a web application, shipping iText with a closed
+source product.
+
+For more information, please contact iText Software Corp. at this
+address: sales@itextpdf.com
+*/
+
+using IText.Kernel.Geom;
+using IText.Kernel.Pdf.Canvas.Wmf;
+
+namespace IText.Kernel.Pdf.Xobject {
+    /// <summary>A wrapper for Form XObject.</summary>
+    /// <remarks>A wrapper for Form XObject. ISO 32000-1, 8.10 FormXObjects.</remarks>
+    public class PdfFormXObject : PdfXObject {
+        protected internal PdfResources resources;
+
+        /// <summary>Creates a new instance of Form XObject.</summary>
+        /// <param name="bBox">the form XObject’s bounding box.</param>
+        public PdfFormXObject(Rectangle bBox)
+            : base(new PdfStream()) {
+            GetPdfObject().Put(PdfName.Type, PdfName.XObject);
+            GetPdfObject().Put(PdfName.Subtype, PdfName.Form);
+            if (bBox != null) {
+                GetPdfObject().Put(PdfName.BBox, new PdfArray(bBox));
+            }
+        }
+
+        /// <summary>
+        /// Create
+        /// <see cref="PdfFormXObject"/>
+        /// instance by
+        /// <see cref="PdfStream"/>.
+        /// </summary>
+        /// <remarks>
+        /// Create
+        /// <see cref="PdfFormXObject"/>
+        /// instance by
+        /// <see cref="PdfStream"/>.
+        /// Note, this constructor doesn't perform any additional checks
+        /// </remarks>
+        /// <param name="pdfStream">
+        /// 
+        /// <see cref="PdfStream"/>
+        /// with Form XObject.
+        /// </param>
+        /// <seealso cref="PdfXObject.MakeXObject(PdfStream)"/>
+        public PdfFormXObject(PdfStream pdfStream)
+            : base(pdfStream) {
+            if (!GetPdfObject().ContainsKey(PdfName.Subtype)) {
+                GetPdfObject().Put(PdfName.Subtype, PdfName.Form);
+            }
+        }
+
+        /// <summary>Creates form XObject from page content.</summary>
+        /// <remarks>
+        /// Creates form XObject from page content.
+        /// The page shall be from the document, to which FormXObject will be added.
+        /// </remarks>
+        /// <param name="page">
+        /// an instance of
+        /// <see cref="PdfPage"/>
+        /// </param>
+        public PdfFormXObject(PdfPage page)
+            : this(page.GetCropBox()) {
+            GetPdfObject().GetOutputStream().WriteBytes(page.GetContentBytes());
+            resources = new PdfResources((PdfDictionary)page.GetResources().GetPdfObject().Clone());
+            GetPdfObject().Put(PdfName.Resources, resources.GetPdfObject());
+        }
+
+        /// <summary>
+        /// Creates a form XObject from
+        /// <see cref="WmfImageData"/>.
+        /// </summary>
+        /// <remarks>
+        /// Creates a form XObject from
+        /// <see cref="WmfImageData"/>.
+        /// Unlike other images,
+        /// <see cref="WmfImageData"/>
+        /// images are represented as
+        /// <see cref="PdfFormXObject"/>
+        /// , not as
+        /// <see cref="PdfImageXObject"/>.
+        /// </remarks>
+        /// <param name="image">image to create form object from</param>
+        /// <param name="pdfDocument">document instance which is needed for writing form stream contents</param>
+        public PdfFormXObject(WmfImageData image, PdfDocument pdfDocument)
+            : this(new WmfImageHelper(image).CreateFormXObject(pdfDocument).GetPdfObject()) {
+        }
+
+        /// <summary>Calculates the coordinates of the xObject BBox multiplied by the Matrix field.</summary>
+        /// <remarks>
+        /// Calculates the coordinates of the xObject BBox multiplied by the Matrix field.
+        /// <para />
+        /// For mor information see paragraph 8.10.1 in ISO-32000-1.
+        /// </remarks>
+        /// <param name="form">the object for which calculate the coordinates of the bBox</param>
+        /// <returns>
+        /// the bBox
+        /// <see cref="Rectangle"/>
+        /// </returns>
+        public static Rectangle CalculateBBoxMultipliedByMatrix(PdfFormXObject form) {
+            var pdfArrayBBox = form.GetPdfObject().GetAsArray(PdfName.BBox);
+            if (pdfArrayBBox == null) {
+                throw new PdfException(PdfException.PdfFormXobjectHasInvalidBbox);
+            }
+            var bBoxArray = pdfArrayBBox.ToFloatArray();
+            var pdfArrayMatrix = form.GetPdfObject().GetAsArray(PdfName.Matrix);
+            float[] matrixArray;
+            if (pdfArrayMatrix == null) {
+                matrixArray = new float[] { 1, 0, 0, 1, 0, 0 };
+            }
+            else {
+                matrixArray = pdfArrayMatrix.ToFloatArray();
+            }
+            var matrix = new Matrix(matrixArray[0], matrixArray[1], matrixArray[2], matrixArray[3], matrixArray[4], 
+                matrixArray[5]);
+            var bBoxMin = new Vector(bBoxArray[0], bBoxArray[1], 1);
+            var bBoxMax = new Vector(bBoxArray[2], bBoxArray[3], 1);
+            var bBoxMinByMatrix = bBoxMin.Cross(matrix);
+            var bBoxMaxByMatrix = bBoxMax.Cross(matrix);
+            var width = bBoxMaxByMatrix.Get(Vector.I1) - bBoxMinByMatrix.Get(Vector.I1);
+            var height = bBoxMaxByMatrix.Get(Vector.I2) - bBoxMinByMatrix.Get(Vector.I2);
+            return new Rectangle(bBoxMinByMatrix.Get(Vector.I1), bBoxMinByMatrix.Get(Vector.I2), width, height);
+        }
+
+        /// <summary>
+        /// Gets
+        /// <see cref="PdfResources"/>
+        /// of the Form XObject.
+        /// </summary>
+        /// <remarks>
+        /// Gets
+        /// <see cref="PdfResources"/>
+        /// of the Form XObject.
+        /// Note, if there is no resources, a new instance will be created.
+        /// </remarks>
+        /// <returns>
+        /// not null instance of
+        /// <see cref="PdfResources"/>.
+        /// </returns>
+        public virtual PdfResources GetResources() {
+            if (resources == null) {
+                var resourcesDict = GetPdfObject().GetAsDictionary(PdfName.Resources);
+                if (resourcesDict == null) {
+                    resourcesDict = new PdfDictionary();
+                    GetPdfObject().Put(PdfName.Resources, resourcesDict);
+                }
+                resources = new PdfResources(resourcesDict);
+            }
+            return resources;
+        }
+
+        /// <summary>
+        /// Gets Form XObject's BBox,
+        /// <see cref="PdfName.BBox"/>
+        /// key.
+        /// </summary>
+        /// <returns>
+        /// a
+        /// <see cref="PdfArray"/>
+        /// , that represents
+        /// <see cref="Rectangle"/>.
+        /// </returns>
+        public virtual PdfArray GetBBox() {
+            return GetPdfObject().GetAsArray(PdfName.BBox);
+        }
+
+        /// <summary>
+        /// Sets Form XObject's BBox,
+        /// <see cref="PdfName.BBox"/>
+        /// key.
+        /// </summary>
+        /// <param name="bBox">
+        /// a
+        /// <see cref="PdfArray"/>
+        /// , that represents
+        /// <see cref="Rectangle"/>.
+        /// </param>
+        /// <returns>object itself.</returns>
+        public virtual PdfFormXObject SetBBox(PdfArray bBox) {
+            return Put(PdfName.BBox, bBox);
+        }
+
+        /// <summary>
+        /// Sets a group attributes dictionary indicating that the contents of the form XObject
+        /// shall be treated as a group and specifying the attributes of that group.
+        /// </summary>
+        /// <remarks>
+        /// Sets a group attributes dictionary indicating that the contents of the form XObject
+        /// shall be treated as a group and specifying the attributes of that group.
+        /// <see cref="PdfName.Group"/>
+        /// key.
+        /// </remarks>
+        /// <param name="transparency">
+        /// instance of
+        /// <see cref="PdfTransparencyGroup"/>.
+        /// </param>
+        /// <returns>object itself.</returns>
+        /// <seealso cref="PdfTransparencyGroup"/>
+        public virtual PdfFormXObject SetGroup(PdfTransparencyGroup transparency) {
+            return Put(PdfName.Group, transparency.GetPdfObject());
+        }
+
+        /// <summary>Gets width based on XObject's BBox.</summary>
+        /// <returns>float value.</returns>
+        public override float GetWidth() {
+            return GetBBox() == null ? 0 : GetBBox().GetAsNumber(2).FloatValue() - GetBBox().GetAsNumber(0).FloatValue
+                ();
+        }
+
+        /// <summary>Gets height based on XObject's BBox.</summary>
+        /// <returns>float value.</returns>
+        public override float GetHeight() {
+            return GetBBox() == null ? 0 : GetBBox().GetAsNumber(3).FloatValue() - GetBBox().GetAsNumber(1).FloatValue
+                ();
+        }
+
+        /// <summary>
+        /// To manually flush a
+        /// <c>PdfObject</c>
+        /// behind this wrapper, you have to ensure
+        /// that this object is added to the document, i.e. it has an indirect reference.
+        /// </summary>
+        /// <remarks>
+        /// To manually flush a
+        /// <c>PdfObject</c>
+        /// behind this wrapper, you have to ensure
+        /// that this object is added to the document, i.e. it has an indirect reference.
+        /// Basically this means that before flushing you need to explicitly call
+        /// <see cref="PdfObjectWrapper{TPdfDocumentPdf.PdfDocument)"/>.
+        /// For example: wrapperInstance.makeIndirect(document).flush();
+        /// Note that not every wrapper require this, only those that have such warning in documentation.
+        /// </remarks>
+        public override void Flush() {
+            resources = null;
+            if (GetPdfObject().Get(PdfName.BBox) == null) {
+                throw new PdfException(PdfException.FormXObjectMustHaveBbox);
+            }
+            base.Flush();
+        }
+
+        //-----Additional entries in form dictionary for Trap Network annotation
+        /// <summary>
+        /// Sets process color model for trap network appearance,
+        /// <see cref="PdfName.PCM"/>
+        /// key.
+        /// </summary>
+        /// <param name="model">
+        /// shall be one of the valid values:
+        /// <see cref="PdfName.DeviceGray"/>
+        /// ,
+        /// <see cref="PdfName.DeviceRGB"/>
+        /// ,
+        /// <see cref="PdfName.DeviceCMYK"/>
+        /// ,
+        /// <see cref="PdfName.DeviceCMY"/>
+        /// ,
+        /// <see cref="PdfName.DeviceRGBK"/>
+        /// , and
+        /// <see cref="PdfName.DeviceN"/>.
+        /// </param>
+        /// <returns>object itself.</returns>
+        public virtual PdfFormXObject SetProcessColorModel(PdfName model) {
+            return Put(PdfName.PCM, model);
+        }
+
+        /// <summary>
+        /// Gets process color model of trap network appearance,
+        /// <see cref="PdfName.PCM"/>
+        /// key.
+        /// </summary>
+        /// <returns>
+        /// a
+        /// <see cref="PdfName"/>
+        /// instance, possible values:
+        /// <see cref="PdfName.DeviceGray"/>
+        /// ,
+        /// <see cref="PdfName.DeviceRGB"/>
+        /// ,
+        /// <see cref="PdfName.DeviceCMYK"/>
+        /// ,
+        /// <see cref="PdfName.DeviceCMY"/>
+        /// ,
+        /// <see cref="PdfName.DeviceRGBK"/>
+        /// , and
+        /// <see cref="PdfName.DeviceN"/>.
+        /// </returns>
+        public virtual PdfName GetProcessColorModel() {
+            return GetPdfObject().GetAsName(PdfName.PCM);
+        }
+
+        /// <summary>
+        /// Sets separation color names for the trap network appearance,
+        /// <see cref="PdfName.SeparationColorNames"/>
+        /// key.
+        /// </summary>
+        /// <param name="colorNames">
+        /// an array of names identifying the colorants that were assumed
+        /// when the trap network appearance was created.
+        /// </param>
+        /// <returns>object itself.</returns>
+        public virtual PdfFormXObject SetSeparationColorNames(PdfArray colorNames) {
+            return Put(PdfName.SeparationColorNames, colorNames);
+        }
+
+        /// <summary>
+        /// Gets separation color names of trap network appearance,
+        /// <see cref="PdfName.SeparationColorNames"/>
+        /// key.
+        /// </summary>
+        /// <returns>
+        /// an
+        /// <see cref="PdfArray"/>
+        /// of names identifying the colorants.
+        /// </returns>
+        public virtual PdfArray GetSeparationColorNames() {
+            return GetPdfObject().GetAsArray(PdfName.SeparationColorNames);
+        }
+
+        /// <summary>
+        /// Sets an array of <b>TrapRegion</b> objects defining the page’s trapping zones
+        /// and the associated trapping parameters, as described in Adobe Technical Note #5620,
+        /// Portable Job Ticket Format.
+        /// </summary>
+        /// <remarks>
+        /// Sets an array of <b>TrapRegion</b> objects defining the page’s trapping zones
+        /// and the associated trapping parameters, as described in Adobe Technical Note #5620,
+        /// Portable Job Ticket Format.
+        /// <see cref="PdfName.TrapRegions"/>
+        /// key.
+        /// </remarks>
+        /// <param name="regions">
+        /// A
+        /// <see cref="PdfArray"/>
+        /// of indirect references to <b>TrapRegion</b> objects.
+        /// </param>
+        /// <returns>object itself.</returns>
+        public virtual PdfFormXObject SetTrapRegions(PdfArray regions) {
+            return Put(PdfName.TrapRegions, regions);
+        }
+
+        /// <summary>
+        /// Gets an array of <b>TrapRegion</b> objects defining the page’s trapping zones
+        /// and the associated trapping parameters, as described in Adobe Technical Note #5620,
+        /// Portable Job Ticket Format.
+        /// </summary>
+        /// <remarks>
+        /// Gets an array of <b>TrapRegion</b> objects defining the page’s trapping zones
+        /// and the associated trapping parameters, as described in Adobe Technical Note #5620,
+        /// Portable Job Ticket Format.
+        /// <see cref="PdfName.TrapRegions"/>
+        /// key.
+        /// </remarks>
+        /// <returns>
+        /// A
+        /// <see cref="PdfArray"/>
+        /// of indirect references to <b>TrapRegion</b> objects.
+        /// </returns>
+        public virtual PdfArray GetTrapRegions() {
+            return GetPdfObject().GetAsArray(PdfName.TrapRegions);
+        }
+
+        /// <summary>Sets a human-readable text string that described this trap network to the user.</summary>
+        /// <remarks>
+        /// Sets a human-readable text string that described this trap network to the user.
+        /// <see cref="PdfName.TrapStyles"/>
+        /// key.
+        /// </remarks>
+        /// <param name="trapStyles">
+        /// a
+        /// <see cref="PdfString"/>
+        /// value.
+        /// </param>
+        /// <returns>object itself.</returns>
+        public virtual PdfFormXObject SetTrapStyles(PdfString trapStyles) {
+            return Put(PdfName.TrapStyles, trapStyles);
+        }
+
+        /// <summary>Gets a human-readable text string that described this trap network to the user.</summary>
+        /// <remarks>
+        /// Gets a human-readable text string that described this trap network to the user.
+        /// <see cref="PdfName.TrapStyles"/>
+        /// key.
+        /// </remarks>
+        /// <returns>
+        /// a
+        /// <see cref="PdfString"/>
+        /// value.
+        /// </returns>
+        public virtual PdfString GetTrapStyles() {
+            return GetPdfObject().GetAsString(PdfName.TrapStyles);
+        }
+
+        //-----Additional entries in form dictionary for Printer Mark annotation
+        /// <summary>Sets a text string representing the printer’s mark in human-readable form.</summary>
+        /// <param name="markStyle">a string value.</param>
+        /// <returns>object itself.</returns>
+        public virtual PdfFormXObject SetMarkStyle(PdfString markStyle) {
+            return Put(PdfName.MarkStyle, markStyle);
+        }
+
+        /// <summary>Gets a text string representing the printer’s mark in human-readable form.</summary>
+        /// <returns>a string value.</returns>
+        public virtual PdfString GetMarkStyle() {
+            return GetPdfObject().GetAsString(PdfName.MarkStyle);
+        }
+
+        /// <summary>Puts the value into Image XObject dictionary and associates it with the specified key.</summary>
+        /// <remarks>
+        /// Puts the value into Image XObject dictionary and associates it with the specified key.
+        /// If the key is already present, it will override the old value with the specified one.
+        /// </remarks>
+        /// <param name="key">key to insert or to override</param>
+        /// <param name="value">the value to associate with the specified key</param>
+        /// <returns>object itself.</returns>
+        public virtual PdfFormXObject Put(PdfName key, PdfObject value) {
+            GetPdfObject().Put(key, value);
+            SetModified();
+            return this;
+        }
+    }
+}

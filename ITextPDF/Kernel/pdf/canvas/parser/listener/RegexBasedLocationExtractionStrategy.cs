@@ -1,0 +1,244 @@
+/*
+This file is part of the iText (R) project.
+Copyright (c) 1998-2021 iText Group NV
+Authors: iText Software.
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License version 3
+as published by the Free Software Foundation with the addition of the
+following permission added to Section 15 as permitted in Section 7(a):
+FOR ANY PART OF THE COVERED WORK IN WHICH THE COPYRIGHT IS OWNED BY
+ITEXT GROUP. ITEXT GROUP DISCLAIMS THE WARRANTY OF NON INFRINGEMENT
+OF THIRD PARTY RIGHTS
+
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+or FITNESS FOR A PARTICULAR PURPOSE.
+See the GNU Affero General Public License for more details.
+You should have received a copy of the GNU Affero General Public License
+along with this program; if not, see http://www.gnu.org/licenses or write to
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA, 02110-1301 USA, or download the license from the following URL:
+http://itextpdf.com/terms-of-use/
+
+The interactive user interfaces in modified source and object code versions
+of this program must display Appropriate Legal Notices, as required under
+Section 5 of the GNU Affero General Public License.
+
+In accordance with Section 7(b) of the GNU Affero General Public License,
+a covered work must retain the producer line in every PDF that is created
+or manipulated using iText.
+
+You can be released from the requirements of the license by purchasing
+a commercial license. Buying such a license is mandatory as soon as you
+develop commercial activities involving the iText software without
+disclosing the source code of your own applications.
+These activities include: offering paid services to customers as an ASP,
+serving PDFs on the fly in a web application, shipping iText with a closed
+source product.
+
+For more information, please contact iText Software Corp. at this
+address: sales@itextpdf.com
+*/
+
+using System.Collections.Generic;
+using System.Text.RegularExpressions;
+using IText.IO.Util;
+using IText.Kernel.Colors;
+using IText.Kernel.Geom;
+using IText.Kernel.Pdf.Canvas.Parser.Data;
+
+namespace IText.Kernel.Pdf.Canvas.Parser.Listener {
+    /// <summary>This class is designed to search for the occurrences of a regular expression and return the resultant rectangles.
+    ///     </summary>
+    public class RegexBasedLocationExtractionStrategy : ILocationExtractionStrategy {
+        private Regex pattern;
+
+        private IList<CharacterRenderInfo> parseResult = new List<CharacterRenderInfo>();
+
+        public RegexBasedLocationExtractionStrategy(string regex) {
+            pattern = StringUtil.RegexCompile(regex);
+        }
+
+        public RegexBasedLocationExtractionStrategy(Regex pattern) {
+            this.pattern = pattern;
+        }
+
+        public virtual ICollection<IPdfTextLocation> GetResultantLocations() {
+            // align characters in "logical" order
+            JavaCollectionsUtil.Sort(parseResult, new TextChunkLocationBasedComparator(new DefaultTextChunkLocationComparator
+                ()));
+            // process parse results
+            IList<IPdfTextLocation> retval = new List<IPdfTextLocation>();
+            var txt = CharacterRenderInfo.MapString(parseResult);
+            var mat = Matcher.Match(pattern, txt.text);
+            while (mat.Find()) {
+                var startIndex = GetStartIndex(txt.indexMap, mat.Start(), txt.text);
+                var endIndex = GetEndIndex(txt.indexMap, mat.End() - 1);
+                if (startIndex != null && endIndex != null && startIndex <= endIndex) {
+                    foreach (var r in ToRectangles(parseResult.SubList(startIndex.Value, endIndex.Value + 1))) {
+                        retval.Add(new DefaultPdfTextLocation(0, r, mat.Group(0)));
+                    }
+                }
+            }
+            /* sort
+            * even though the return type is Collection<Rectangle>, we apply a sorting algorithm here
+            * This is to ensure that tests that use this functionality (for instance to generate pdf with
+            * areas of interest highlighted) will not break when compared.
+            */
+            JavaCollectionsUtil.Sort(retval, new _IComparer_103());
+            // ligatures can produces same rectangle
+            RemoveDuplicates(retval);
+            return retval;
+        }
+
+        private sealed class _IComparer_103 : IComparer<IPdfTextLocation> {
+	        public int Compare(IPdfTextLocation l1, IPdfTextLocation l2) {
+                var o1 = l1.GetRectangle();
+                var o2 = l2.GetRectangle();
+                if (o1.GetY() == o2.GetY()) {
+                    return o1.GetX() == o2.GetX() ? 0 : (o1.GetX() < o2.GetX() ? -1 : 1);
+                }
+
+                return o1.GetY() < o2.GetY() ? -1 : 1;
+	        }
+        }
+
+        private void RemoveDuplicates(IList<IPdfTextLocation> sortedList) {
+            IPdfTextLocation lastItem = null;
+            var orgSize = sortedList.Count;
+            for (var i = orgSize - 1; i >= 0; i--) {
+                var currItem = sortedList[i];
+                var currRect = currItem.GetRectangle();
+                if (lastItem != null && currRect.EqualsWithEpsilon(lastItem.GetRectangle())) {
+                    sortedList.Remove(currItem);
+                }
+                lastItem = currItem;
+            }
+        }
+
+        public virtual void EventOccurred(IEventData data, EventType type) {
+            if (data is TextRenderInfo) {
+                parseResult.AddAll(ToCRI((TextRenderInfo)data));
+            }
+        }
+
+        public virtual ICollection<EventType> GetSupportedEvents() {
+            return null;
+        }
+
+        /// <summary>
+        /// Convert
+        /// <see cref="TextRenderInfo"/>
+        /// to
+        /// <see cref="CharacterRenderInfo"/>
+        /// This method is public and not final so that custom implementations can choose to override it.
+        /// </summary>
+        /// <remarks>
+        /// Convert
+        /// <see cref="TextRenderInfo"/>
+        /// to
+        /// <see cref="CharacterRenderInfo"/>
+        /// This method is public and not final so that custom implementations can choose to override it.
+        /// Other implementations of
+        /// <c>CharacterRenderInfo</c>
+        /// may choose to store different properties than
+        /// merely the
+        /// <see cref="Rectangle"/>
+        /// describing the bounding box. E.g. a custom implementation might choose to
+        /// store
+        /// <see cref="Color"/>
+        /// information as well, to better match the content surrounding the redaction
+        /// <see cref="Rectangle"/>.
+        /// </remarks>
+        /// <param name="tri">
+        /// 
+        /// <see cref="TextRenderInfo"/>
+        /// object
+        /// </param>
+        /// <returns>
+        /// a list of
+        /// <see cref="CharacterRenderInfo"/>
+        /// s which represents the passed
+        /// <see cref="TextRenderInfo"/>
+        /// ?
+        /// </returns>
+        protected internal virtual IList<CharacterRenderInfo> ToCRI(TextRenderInfo tri) {
+            IList<CharacterRenderInfo> cris = new List<CharacterRenderInfo>();
+            foreach (var subTri in tri.GetCharacterRenderInfos()) {
+                cris.Add(new CharacterRenderInfo(subTri));
+            }
+            return cris;
+        }
+
+        /// <summary>
+        /// Converts
+        /// <see cref="CharacterRenderInfo"/>
+        /// objects to
+        /// <see cref="Rectangle"/>
+        /// s
+        /// This method is protected and not final so that custom implementations can choose to override it.
+        /// </summary>
+        /// <remarks>
+        /// Converts
+        /// <see cref="CharacterRenderInfo"/>
+        /// objects to
+        /// <see cref="Rectangle"/>
+        /// s
+        /// This method is protected and not final so that custom implementations can choose to override it.
+        /// E.g. other implementations may choose to add padding/margin to the Rectangles.
+        /// This method also offers a convenient access point to the mapping of
+        /// <see cref="CharacterRenderInfo"/>
+        /// to
+        /// <see cref="Rectangle"/>.
+        /// This mapping enables (custom implementations) to match color of text in redacted Rectangles,
+        /// or match color of background, by the mere virtue of offering access to the
+        /// <see cref="CharacterRenderInfo"/>
+        /// objects
+        /// that generated the
+        /// <see cref="Rectangle"/>.
+        /// </remarks>
+        /// <param name="cris">
+        /// list of
+        /// <see cref="CharacterRenderInfo"/>
+        /// objects
+        /// </param>
+        /// <returns>an array containing the elements of this list</returns>
+        protected internal virtual IList<Rectangle> ToRectangles(IList<CharacterRenderInfo> cris) {
+            IList<Rectangle> retval = new List<Rectangle>();
+            if (cris.IsEmpty()) {
+                return retval;
+            }
+            var prev = 0;
+            var curr = 0;
+            while (curr < cris.Count) {
+                while (curr < cris.Count && cris[curr].SameLine(cris[prev])) {
+                    curr++;
+                }
+                Rectangle resultRectangle = null;
+                foreach (var cri in cris.SubList(prev, curr)) {
+                    // in case letters are rotated (imagine text being written with an angle of 90 degrees)
+                    resultRectangle = Rectangle.GetCommonRectangle(resultRectangle, cri.GetBoundingBox());
+                }
+                retval.Add(resultRectangle);
+                prev = curr;
+            }
+            // return
+            return retval;
+        }
+
+        private static int? GetStartIndex(IDictionary<int, int?> indexMap, int index, string txt) {
+            while (!indexMap.ContainsKey(index) && index < txt.Length) {
+                index++;
+            }
+            return indexMap.Get(index);
+        }
+
+        private static int? GetEndIndex(IDictionary<int, int?> indexMap, int index) {
+            while (!indexMap.ContainsKey(index) && index >= 0) {
+                index--;
+            }
+            return indexMap.Get(index);
+        }
+    }
+}

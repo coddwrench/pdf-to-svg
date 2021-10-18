@@ -1,0 +1,295 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{AA0CA68B-E7C6-4AA2-A439-CF3E7C161D41}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>SVG</RootNamespace>
+    <AssemblyName>SVG</AssemblyName>
+    <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <Deterministic>true</Deterministic>
+    <NuGetPackageImportStamp>
+    </NuGetPackageImportStamp>
+    <TargetFrameworkProfile />
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="SVG\Basic Shapes\SvgCircle.cs" />
+    <Compile Include="SVG\Basic Shapes\SvgEllipse.cs" />
+    <Compile Include="SVG\Basic Shapes\SvgImage.cs" />
+    <Compile Include="SVG\Basic Shapes\SvgLine.cs" />
+    <Compile Include="SVG\Basic Shapes\SvgPolygon.cs" />
+    <Compile Include="SVG\Basic Shapes\SvgPolyline.cs" />
+    <Compile Include="SVG\Basic Shapes\SvgRectangle.cs" />
+    <Compile Include="SVG\Basic Shapes\SvgVisualElement.cs" />
+    <Compile Include="SVG\Basic Shapes\SvgVisualElementStyle.cs" />
+    <Compile Include="SVG\Clipping and Masking\ISvgClipable.cs" />
+    <Compile Include="SVG\Clipping and Masking\SvgClipPath.cs" />
+    <Compile Include="SVG\Clipping and Masking\SvgClipRule.cs" />
+    <Compile Include="SVG\Clipping and Masking\SvgMask.cs" />
+    <Compile Include="SVG\Css\CssQuery.cs" />
+    <Compile Include="SVG\Css\SvgElementOps.cs" />
+    <Compile Include="SVG\DataTypes\ISvgSupportsCoordinateUnits.cs" />
+    <Compile Include="SVG\DataTypes\ISvgViewPort.cs" />
+    <Compile Include="SVG\DataTypes\SvgAspectRatio.cs" />
+    <Compile Include="SVG\DataTypes\SvgAspectRatioConverter.cs" />
+    <Compile Include="SVG\DataTypes\SvgColourInterpolation.cs" />
+    <Compile Include="SVG\DataTypes\SvgCoordinateUnits.cs" />
+    <Compile Include="SVG\DataTypes\SvgElementStyle.cs" />
+    <Compile Include="SVG\DataTypes\SvgFontStyle.cs" />
+    <Compile Include="SVG\DataTypes\SvgFontVariant.cs" />
+    <Compile Include="SVG\DataTypes\SvgFontWeight.cs" />
+    <Compile Include="SVG\DataTypes\SvgMarkerUnits.cs" />
+    <Compile Include="SVG\DataTypes\SvgOrient.cs" />
+    <Compile Include="SVG\DataTypes\SvgOrientConverter.cs" />
+    <Compile Include="SVG\DataTypes\SvgOverflow.cs" />
+    <Compile Include="SVG\DataTypes\SvgPoint.cs" />
+    <Compile Include="SVG\DataTypes\SvgPointCollection.cs" />
+    <Compile Include="SVG\DataTypes\SvgTextDecoration.cs" />
+    <Compile Include="SVG\DataTypes\SvgTextLengthAdjust.cs" />
+    <Compile Include="SVG\DataTypes\SvgTextPathMethod.cs" />
+    <Compile Include="SVG\DataTypes\SvgTextPathSpacing.cs" />
+    <Compile Include="SVG\DataTypes\SvgUnit.cs" />
+    <Compile Include="SVG\DataTypes\SvgUnitCollection.cs" />
+    <Compile Include="SVG\DataTypes\SvgUnitConverter.cs" />
+    <Compile Include="SVG\DataTypes\SvgViewBox.cs" />
+    <Compile Include="SVG\DataTypes\XmlSpaceHandling.cs" />
+    <Compile Include="SVG\Document Structure\SvgDefinitionList.cs" />
+    <Compile Include="SVG\Document Structure\SvgDescription.cs" />
+    <Compile Include="SVG\Document Structure\SvgDocumentMetadata.cs" />
+    <Compile Include="SVG\Document Structure\SvgFragment.cs" />
+    <Compile Include="SVG\Document Structure\SvgGroup.cs" />
+    <Compile Include="SVG\Document Structure\SvgSwitch.cs" />
+    <Compile Include="SVG\Document Structure\SvgSymbol.cs" />
+    <Compile Include="SVG\Document Structure\SvgTitle.cs" />
+    <Compile Include="SVG\Document Structure\SvgUse.cs" />
+    <Compile Include="SVG\Exceptions\SvgException.cs" />
+    <Compile Include="SVG\Exceptions\SvgMemoryException.cs" />
+    <Compile Include="SVG\Extensibility\SvgForeignObject.cs" />
+    <Compile Include="SVG\ExtensionMethods\UriExtensions.cs" />
+    <Compile Include="SVG\Extensions.cs" />
+    <Compile Include="SVG\External\ExCSS\CssParser.cs" />
+    <Compile Include="SVG\External\ExCSS\IToString.cs" />
+    <Compile Include="SVG\External\ExCSS\Lexer.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\Enumerations.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\Extensions\CharacterExtensions.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\Extensions\StringExtensions.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\FunctionBuffer.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\HtmlEncoding.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\ICssRules.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\ICssSelector.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\IStyleDeclaration.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\ISupportsMedia.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\MediaTypeList.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\Rules\AggregateRule.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\Rules\CharacterSetRule.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\Rules\ConditionalRule.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\Rules\DocumentRule.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\Rules\FontFaceRule.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\Rules\GenericRule.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\Rules\ImportRule.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\Rules\IRuleContainer.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\Rules\KeyframeRule.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\Rules\KeyframesRule.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\Rules\MediaRule.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\Rules\NamespaceRule.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\Rules\PageRule.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\Rules\RuleSet.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\Rules\StyleDeclaration.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\Rules\StyleRule.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\Rules\SupportsRule.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\Selector\AggregateSelectorList.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\Selector\BaseSelector.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\Selector\CombinatorSelector.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\Selector\ComplexSelector.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\Selector\FirstChildSelector.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\Selector\LastChildSelector.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\Selector\MultipleSelectorList.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\Selector\NthChildSelector.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\Selector\NthFirstChildSelector.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\Selector\NthLastChildSelector.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\Selector\NthLastOfTypeSelector.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\Selector\NthOfTypeSelector.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\Selector\SelectorFactory.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\Selector\SelectorList.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\Selector\SimpleSelector.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\Specification.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\TextBlocks\Block.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\TextBlocks\BracketBlock.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\TextBlocks\CharacterBlock.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\TextBlocks\CommentBlock.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\TextBlocks\DelimiterBlock.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\TextBlocks\MatchBlock.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\TextBlocks\NumericBlock.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\TextBlocks\PipeBlock.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\TextBlocks\RangeBlock.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\TextBlocks\SpecialCharacter.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\TextBlocks\StringBlock.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\TextBlocks\SymbolBlock.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\TextBlocks\UnitBlock.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\Values\GenericFunction.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\Values\HtmlColor.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\Values\InheritTerm.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\Values\PrimitiveTerm.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\Values\Property.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\Values\Term.cs" />
+    <Compile Include="SVG\External\ExCSS\Model\Values\TermList.cs" />
+    <Compile Include="SVG\External\ExCSS\Parser.Blocks.cs" />
+    <Compile Include="SVG\External\ExCSS\StyleSheet.cs" />
+    <Compile Include="SVG\External\ExCSS\StylesheetParseError.cs" />
+    <Compile Include="SVG\External\ExCSS\StylesheetReader.cs" />
+    <Compile Include="SVG\External\Fizzler\Either.cs" />
+    <Compile Include="SVG\External\Fizzler\HumanReadableSelectorGenerator.cs" />
+    <Compile Include="SVG\External\Fizzler\IElementOps.cs" />
+    <Compile Include="SVG\External\Fizzler\ISelectorGenerator.cs" />
+    <Compile Include="SVG\External\Fizzler\NamespacePrefix.cs" />
+    <Compile Include="SVG\External\Fizzler\Parser.cs" />
+    <Compile Include="SVG\External\Fizzler\Reader.cs" />
+    <Compile Include="SVG\External\Fizzler\Selector.cs" />
+    <Compile Include="SVG\External\Fizzler\SelectorGenerator.cs" />
+    <Compile Include="SVG\External\Fizzler\SelectorGeneratorTee.cs" />
+    <Compile Include="SVG\External\Fizzler\SelectorsCachingCompiler.cs" />
+    <Compile Include="SVG\External\Fizzler\Token.cs" />
+    <Compile Include="SVG\External\Fizzler\Tokener.cs" />
+    <Compile Include="SVG\External\Fizzler\TokenKind.cs" />
+    <Compile Include="SVG\Filter Effects\feColourMatrix\SvgColourMatrix.cs" />
+    <Compile Include="SVG\Filter Effects\feColourMatrix\SvgColourMatrixType.cs" />
+    <Compile Include="SVG\Filter Effects\feGaussianBlur\RawBitmap.cs" />
+    <Compile Include="SVG\Filter Effects\feGaussianBlur\SvgGaussianBlur.cs" />
+    <Compile Include="SVG\Filter Effects\feMerge\SvgMerge.cs" />
+    <Compile Include="SVG\Filter Effects\feMerge\SvgMergeNode.cs" />
+    <Compile Include="SVG\Filter Effects\feOffset\SvgOffset.cs" />
+    <Compile Include="SVG\Filter Effects\ImageBuffer.cs" />
+    <Compile Include="SVG\Filter Effects\ISvgFilterable.cs" />
+    <Compile Include="SVG\Filter Effects\SvgFilter.cs" />
+    <Compile Include="SVG\Filter Effects\SvgFilterPrimitive.cs" />
+    <Compile Include="SVG\NonSvgElement.cs" />
+    <Compile Include="SVG\Painting\EnumConverters.cs" />
+    <Compile Include="SVG\Painting\GenericBoundable.cs" />
+    <Compile Include="SVG\Painting\ISvgBoundable.cs" />
+    <Compile Include="SVG\Painting\ISvgStylable.cs" />
+    <Compile Include="SVG\Painting\SvgColourConverter.cs" />
+    <Compile Include="SVG\Painting\SvgColourServer.cs" />
+    <Compile Include="SVG\Painting\SvgDeferredPaintServer.cs" />
+    <Compile Include="SVG\Painting\SvgFallbackPaintServer .cs" />
+    <Compile Include="SVG\Painting\SvgFillRule.cs" />
+    <Compile Include="SVG\Painting\SvgGradientServer.cs" />
+    <Compile Include="SVG\Painting\SvgGradientSpreadMethod.cs" />
+    <Compile Include="SVG\Painting\SvgGradientStop.cs" />
+    <Compile Include="SVG\Painting\SvgLinearGradientServer.cs" />
+    <Compile Include="SVG\Painting\SvgMarker.cs" />
+    <Compile Include="SVG\Painting\SvgPaintServer.cs" />
+    <Compile Include="SVG\Painting\SvgPaintServerFactory.cs" />
+    <Compile Include="SVG\Painting\SvgPatternServer.cs" />
+    <Compile Include="SVG\Painting\SvgRadialGradientServer.cs" />
+    <Compile Include="SVG\Painting\SvgStrokeLineCap.cs" />
+    <Compile Include="SVG\Painting\SvgStrokeLineJoin.cs" />
+    <Compile Include="SVG\Paths\CoordinateParser.cs" />
+    <Compile Include="SVG\Paths\SvgArcSegment.cs" />
+    <Compile Include="SVG\Paths\SvgClosePathSegment.cs" />
+    <Compile Include="SVG\Paths\SvgCubicCurveSegment.cs" />
+    <Compile Include="SVG\Paths\SvgLineSegment.cs" />
+    <Compile Include="SVG\Paths\SvgMoveToSegment.cs" />
+    <Compile Include="SVG\Paths\SvgPath.cs" />
+    <Compile Include="SVG\Paths\SvgPathBuilder.cs" />
+    <Compile Include="SVG\Paths\SvgPathSegment.cs" />
+    <Compile Include="SVG\Paths\SvgPathSegmentList.cs" />
+    <Compile Include="SVG\Paths\SvgQuadraticCurveSegment.cs" />
+    <Compile Include="SVG\Rendering\IGraphicsProvider.cs" />
+    <Compile Include="SVG\Rendering\ISvgRenderer.cs" />
+    <Compile Include="SVG\Rendering\SvgRenderer.cs" />
+    <Compile Include="SVG\Rendering\SvgRendering.cs" />
+    <Compile Include="SVG\SvgAttributeAttribute.cs" />
+    <Compile Include="SVG\SvgAttributeCollection.cs" />
+    <Compile Include="SVG\SvgContentNode.cs" />
+    <Compile Include="SVG\SvgDefinitionDefaults.cs" />
+    <Compile Include="SVG\SvgDocument.cs" />
+    <Compile Include="SVG\SvgDtdResolver.cs" />
+    <Compile Include="SVG\SvgElement.cs" />
+    <Compile Include="SVG\SvgElementAttribute.cs" />
+    <Compile Include="SVG\SvgElementCollection.cs" />
+    <Compile Include="SVG\SvgElementFactory.cs" />
+    <Compile Include="SVG\SvgElementIdManager.cs" />
+    <Compile Include="SVG\SvgElementStyle.cs" />
+    <Compile Include="SVG\SvgExtentions.cs" />
+    <Compile Include="SVG\SvgNodeReader.cs" />
+    <Compile Include="SVG\SvgTextReader.cs" />
+    <Compile Include="SVG\SvgUnknownElement.cs" />
+    <Compile Include="SVG\Text\FontFamily.cs" />
+    <Compile Include="SVG\Text\GdiFontDefn.cs" />
+    <Compile Include="SVG\Text\IFontDefn.cs" />
+    <Compile Include="SVG\Text\PathStatistics.cs" />
+    <Compile Include="SVG\Text\SvgFont.cs" />
+    <Compile Include="SVG\Text\SvgFontDefn.cs" />
+    <Compile Include="SVG\Text\SvgFontFace.cs" />
+    <Compile Include="SVG\Text\SvgFontFaceSrc.cs" />
+    <Compile Include="SVG\Text\SvgFontFaceUri.cs" />
+    <Compile Include="SVG\Text\SvgGlyph.cs" />
+    <Compile Include="SVG\Text\SvgKern.cs" />
+    <Compile Include="SVG\Text\SvgMissingGlyph.cs" />
+    <Compile Include="SVG\Text\SvgText.cs" />
+    <Compile Include="SVG\Text\SvgTextAnchor.cs" />
+    <Compile Include="SVG\Text\SvgTextBase.cs" />
+    <Compile Include="SVG\Text\SvgTextPath.cs" />
+    <Compile Include="SVG\Text\SvgTextRef.cs" />
+    <Compile Include="SVG\Text\SvgTextSpan.cs" />
+    <Compile Include="SVG\Transforms\ISvgTransformable.cs" />
+    <Compile Include="SVG\Transforms\SvgMatrix.cs" />
+    <Compile Include="SVG\Transforms\SvgRotate.cs" />
+    <Compile Include="SVG\Transforms\SvgScale.cs" />
+    <Compile Include="SVG\Transforms\SvgShear.cs" />
+    <Compile Include="SVG\Transforms\SvgSkew.cs" />
+    <Compile Include="SVG\Transforms\SvgTransform.cs" />
+    <Compile Include="SVG\Transforms\SvgTransformCollection.cs" />
+    <Compile Include="SVG\Transforms\SvgTransformConverter.cs" />
+    <Compile Include="SVG\Transforms\SvgTranslate.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="README.md" />
+    <None Include="SVG\Basic Shapes\DOM.cd" />
+    <None Include="SVG\Resources\svg11.dtd" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="BuildProcessTemplates\DefaultTemplate.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Content>
+    <Content Include="BuildProcessTemplates\UpgradeTemplate.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Content>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>

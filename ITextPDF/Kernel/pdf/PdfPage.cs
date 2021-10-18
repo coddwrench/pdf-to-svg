@@ -1,0 +1,1954 @@
+/*
+
+This file is part of the iText (R) project.
+Copyright (c) 1998-2021 iText Group NV
+Authors: Bruno Lowagie, Paulo Soares, et al.
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License version 3
+as published by the Free Software Foundation with the addition of the
+following permission added to Section 15 as permitted in Section 7(a):
+FOR ANY PART OF THE COVERED WORK IN WHICH THE COPYRIGHT IS OWNED BY
+ITEXT GROUP. ITEXT GROUP DISCLAIMS THE WARRANTY OF NON INFRINGEMENT
+OF THIRD PARTY RIGHTS
+
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+or FITNESS FOR A PARTICULAR PURPOSE.
+See the GNU Affero General Public License for more details.
+You should have received a copy of the GNU Affero General Public License
+along with this program; if not, see http://www.gnu.org/licenses or write to
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA, 02110-1301 USA, or download the license from the following URL:
+http://itextpdf.com/terms-of-use/
+
+The interactive user interfaces in modified source and object code versions
+of this program must display Appropriate Legal Notices, as required under
+Section 5 of the GNU Affero General Public License.
+
+In accordance with Section 7(b) of the GNU Affero General Public License,
+a covered work must retain the producer line in every PDF that is created
+or manipulated using iText.
+
+You can be released from the requirements of the license by purchasing
+a commercial license. Buying such a license is mandatory as soon as you
+develop commercial activities involving the iText software without
+disclosing the source code of your own applications.
+These activities include: offering paid services to customers as an ASP,
+serving PDFs on the fly in a web application, shipping iText with a closed
+source product.
+
+For more information, please contact iText Software Corp. at this
+address: sales@itextpdf.com
+*/
+
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using IText.IO;
+using IText.IO.Util;
+using IText.Kernel.Events;
+using IText.Kernel.Geom;
+using IText.Kernel.Pdf.Action;
+using IText.Kernel.Pdf.Annot;
+using IText.Kernel.Pdf.Filespec;
+using IText.Kernel.Pdf.Tagging;
+using IText.Kernel.Pdf.Tagutils;
+using IText.Kernel.Pdf.Xobject;
+using IText.Kernel.XMP;
+using IText.Kernel.XMP.Options;
+using IText.Logger;
+using IOException = System.IO.IOException;
+
+namespace IText.Kernel.Pdf
+{
+	public class PdfPage : PdfObjectWrapper<PdfDictionary>
+	{
+		private PdfResources resources;
+
+		private int mcid = -1;
+
+		internal PdfPages parentPages;
+
+		private static readonly IList<PdfName> PAGE_EXCLUDED_KEYS = new List<PdfName>(JavaUtil.ArraysAsList(PdfName
+			.Parent, PdfName.Annots, PdfName.StructParents, PdfName.B));
+
+		// This key contains reference to all articles, while this articles could reference to lots of pages.
+		// See DEVSIX-191
+		private static readonly IList<PdfName> XOBJECT_EXCLUDED_KEYS;
+
+		static PdfPage()
+		{
+			XOBJECT_EXCLUDED_KEYS = new List<PdfName>(JavaUtil.ArraysAsList(PdfName.MediaBox, PdfName.CropBox, PdfName
+				.TrimBox, PdfName.Contents));
+			XOBJECT_EXCLUDED_KEYS.AddAll(PAGE_EXCLUDED_KEYS);
+		}
+
+		/// <summary>Automatically rotate new content if the page has a rotation ( is disabled by default )</summary>
+		private bool ignorePageRotationForContent;
+
+		/// <summary>
+		/// See
+		/// <see cref="IsPageRotationInverseMatrixWritten()"/>.
+		/// </summary>
+		private bool pageRotationInverseMatrixWritten;
+
+		protected internal PdfPage(PdfDictionary pdfObject)
+			: base(pdfObject)
+		{
+			SetForbidRelease();
+			EnsureObjectIsAddedToDocument(pdfObject);
+		}
+
+		protected internal PdfPage(PdfDocument pdfDocument, PageSize pageSize)
+			: this((PdfDictionary)new PdfDictionary().MakeIndirect(pdfDocument))
+		{
+			var contentStream = (PdfStream)new PdfStream().MakeIndirect(pdfDocument);
+			GetPdfObject().Put(PdfName.Contents, contentStream);
+			GetPdfObject().Put(PdfName.Type, PdfName.Page);
+			GetPdfObject().Put(PdfName.MediaBox, new PdfArray(pageSize));
+			GetPdfObject().Put(PdfName.TrimBox, new PdfArray(pageSize));
+			if (pdfDocument.IsTagged())
+			{
+				SetTabOrder(PdfName.S);
+			}
+		}
+
+		protected internal PdfPage(PdfDocument pdfDocument)
+			: this(pdfDocument, pdfDocument.GetDefaultPageSize())
+		{
+		}
+
+		/// <summary>Gets page size, defined by media box object.</summary>
+		/// <remarks>Gets page size, defined by media box object. This method doesn't take page rotation into account.
+		///     </remarks>
+		/// <returns>
+		/// 
+		/// <see cref="Rectangle"/>
+		/// that specify page size.
+		/// </returns>
+		public virtual Rectangle PageSize => GetMediaBox();
+
+		/// <summary>Gets page size, considering page rotation.</summary>
+		/// <returns>
+		/// 
+		/// <see cref="Rectangle"/>
+		/// that specify size of rotated page.
+		/// </returns>
+		public virtual Rectangle GetPageSizeWithRotation()
+		{
+			var rect = new PageSize(PageSize);
+			var rotation = GetRotation();
+			while (rotation > 0)
+			{
+				rect = rect.Rotate();
+				rotation -= 90;
+			}
+			return rect;
+		}
+
+		/// <summary>Gets the number of degrees by which the page shall be rotated clockwise when displayed or printed.
+		///     </summary>
+		/// <remarks>
+		/// Gets the number of degrees by which the page shall be rotated clockwise when displayed or printed.
+		/// Shall be a multiple of 90.
+		/// </remarks>
+		/// <returns>
+		/// 
+		/// <c>int</c>
+		/// number of degrees. Default value: 0
+		/// </returns>
+		public virtual int GetRotation()
+		{
+			var rotate = GetPdfObject().GetAsNumber(PdfName.Rotate);
+			var rotateValue = 0;
+			if (rotate == null)
+			{
+				rotate = (PdfNumber)GetInheritedValue(PdfName.Rotate, PdfObject.NUMBER);
+			}
+			if (rotate != null)
+			{
+				rotateValue = rotate.IntValue();
+			}
+			rotateValue %= 360;
+			return rotateValue < 0 ? rotateValue + 360 : rotateValue;
+		}
+
+		/// <summary>Sets the page rotation.</summary>
+		/// <param name="degAngle">
+		/// the
+		/// <c>int</c>
+		/// number of degrees by which the page shall be rotated clockwise
+		/// when displayed or printed. Shall be a multiple of 90.
+		/// </param>
+		/// <returns>
+		/// this
+		/// <see cref="PdfPage"/>
+		/// instance.
+		/// </returns>
+		public virtual PdfPage SetRotation(int degAngle)
+		{
+			Put(PdfName.Rotate, new PdfNumber(degAngle));
+			return this;
+		}
+
+		/// <summary>
+		/// Gets the content stream at specified 0-based index in the Contents object
+		/// <see cref="PdfArray"/>.
+		/// </summary>
+		/// <remarks>
+		/// Gets the content stream at specified 0-based index in the Contents object
+		/// <see cref="PdfArray"/>.
+		/// The situation when Contents object is a
+		/// <see cref="PdfStream"/>
+		/// is treated like a one element array.
+		/// </remarks>
+		/// <param name="index">
+		/// the
+		/// <c>int</c>
+		/// index of returned
+		/// <see cref="PdfStream"/>.
+		/// </param>
+		/// <returns>
+		/// 
+		/// <see cref="PdfStream"/>
+		/// object at specified index;
+		/// will return null in case page dictionary doesn't adhere to the specification, meaning that the document is an invalid PDF.
+		/// </returns>
+		public virtual PdfStream GetContentStream(int index)
+		{
+			var count = GetContentStreamCount();
+			if (index >= count || index < 0)
+				throw new IndexOutOfRangeException(MessageFormatUtil.Format("Index: {0}, Size: {1}", index, count));
+
+			var contents = GetPdfObject().Get(PdfName.Contents);
+			if (contents is PdfStream stream)
+				return stream;
+
+			if (contents is PdfArray a)
+				return a.GetAsStream(index);
+
+			return null;
+		}
+
+		/// <summary>
+		/// Gets the size of Contents object
+		/// <see cref="PdfArray"/>.
+		/// </summary>
+		/// <remarks>
+		/// Gets the size of Contents object
+		/// <see cref="PdfArray"/>.
+		/// The situation when Contents object is a
+		/// <see cref="PdfStream"/>
+		/// is treated like a one element array.
+		/// </remarks>
+		/// <returns>
+		/// the
+		/// <c>int</c>
+		/// size of Contents object, or 1 if Contents object is a
+		/// <see cref="PdfStream"/>.
+		/// </returns>
+		public virtual int GetContentStreamCount()
+		{
+			var contents = GetPdfObject().Get(PdfName.Contents);
+			if (contents is PdfStream)
+				return 1;
+
+			if (contents is PdfArray)
+				return ((PdfArray)contents).Size();
+
+			return 0;
+		}
+
+		/// <summary>
+		/// Returns the Contents object if it is
+		/// <see cref="PdfStream"/>
+		/// , or first stream in the array if it is
+		/// <see cref="PdfArray"/>.
+		/// </summary>
+		/// <returns>
+		/// first
+		/// <see cref="PdfStream"/>
+		/// in Contents object, or
+		/// <see langword="null"/>
+		/// if Contents is empty.
+		/// </returns>
+		public virtual PdfStream GetFirstContentStream()
+		{
+			if (GetContentStreamCount() > 0)
+			{
+				return GetContentStream(0);
+			}
+			return null;
+		}
+
+		/// <summary>
+		/// Returns the Contents object if it is
+		/// <see cref="PdfStream"/>
+		/// , or last stream in the array if it is
+		/// <see cref="PdfArray"/>.
+		/// </summary>
+		/// <returns>
+		/// first
+		/// <see cref="PdfStream"/>
+		/// in Contents object, or
+		/// <see langword="null"/>
+		/// if Contents is empty.
+		/// </returns>
+		public virtual PdfStream GetLastContentStream()
+		{
+			var count = GetContentStreamCount();
+			if (count > 0)
+			{
+				return GetContentStream(count - 1);
+			}
+			return null;
+		}
+
+		/// <summary>
+		/// Creates new
+		/// <see cref="PdfStream"/>
+		/// object and puts it at the beginning of Contents array
+		/// (if Contents object is
+		/// <see cref="PdfStream"/>
+		/// it will be replaced with one-element array).
+		/// </summary>
+		/// <returns>
+		/// Created
+		/// <see cref="PdfStream"/>
+		/// object.
+		/// </returns>
+		public virtual PdfStream NewContentStreamBefore()
+		{
+			return NewContentStream(true);
+		}
+
+		/// <summary>
+		/// Creates new
+		/// <see cref="PdfStream"/>
+		/// object and puts it at the end of Contents array
+		/// (if Contents object is
+		/// <see cref="PdfStream"/>
+		/// it will be replaced with one-element array).
+		/// </summary>
+		/// <returns>
+		/// Created
+		/// <see cref="PdfStream"/>
+		/// object.
+		/// </returns>
+		public virtual PdfStream NewContentStreamAfter()
+		{
+			return NewContentStream(false);
+		}
+
+		/// <summary>
+		/// Gets the
+		/// <see cref="PdfResources"/>
+		/// wrapper object for this page resources.
+		/// </summary>
+		/// <remarks>
+		/// Gets the
+		/// <see cref="PdfResources"/>
+		/// wrapper object for this page resources.
+		/// If page doesn't have resource object, then it will be inherited from page's parents.
+		/// If neither parents nor page has the resource object, then the new one is created and added to page dictionary.
+		/// <br /><br />
+		/// NOTE: If you'll try to modify the inherited resources, then the new resources object will be created,
+		/// so you won't change the parent's resources.
+		/// This new object under the wrapper will be added to page dictionary on
+		/// <see cref="Flush()"/>
+		/// ,
+		/// or you can add it manually with this line, if needed:<br />
+		/// <c>getPdfObject().put(PdfName.Resources, getResources().getPdfObject());</c>
+		/// </remarks>
+		/// <returns>
+		/// 
+		/// <see cref="PdfResources"/>
+		/// wrapper of the page.
+		/// </returns>
+		public virtual PdfResources GetResources()
+		{
+			return GetResources(true);
+		}
+
+		internal virtual PdfResources GetResources(bool initResourcesField)
+		{
+			if (resources == null && initResourcesField)
+			{
+				InitResources(true);
+			}
+			return resources;
+		}
+
+		internal virtual PdfDictionary InitResources(bool initResourcesField)
+		{
+			var readOnly = false;
+			var resources = GetPdfObject().GetAsDictionary(PdfName.Resources);
+			if (resources == null)
+			{
+				resources = (PdfDictionary)GetInheritedValue(PdfName.Resources, PdfObject.DICTIONARY);
+				if (resources != null)
+				{
+					readOnly = true;
+				}
+			}
+			if (resources == null)
+			{
+				resources = new PdfDictionary();
+				// not marking page as modified because of this change
+				GetPdfObject().Put(PdfName.Resources, resources);
+			}
+			if (initResourcesField)
+			{
+				this.resources = new PdfResources(resources);
+				this.resources.SetReadOnly(readOnly);
+			}
+			return resources;
+		}
+
+		/// <summary>
+		/// Sets
+		/// <see cref="PdfResources"/>
+		/// object.
+		/// </summary>
+		/// <param name="pdfResources">
+		/// 
+		/// <see cref="PdfResources"/>
+		/// to set.
+		/// </param>
+		/// <returns>
+		/// this
+		/// <see cref="PdfPage"/>
+		/// instance.
+		/// </returns>
+		public virtual PdfPage SetResources(PdfResources pdfResources)
+		{
+			Put(PdfName.Resources, pdfResources.GetPdfObject());
+			resources = pdfResources;
+			return this;
+		}
+
+		/// <summary>Sets the XMP Metadata.</summary>
+		/// <param name="xmpMetadata">
+		/// the
+		/// <c>byte[]</c>
+		/// of XMP Metadata to set.
+		/// </param>
+		/// <returns>
+		/// this
+		/// <see cref="PdfPage"/>
+		/// instance.
+		/// </returns>
+		public virtual PdfPage SetXmpMetadata(byte[] xmpMetadata)
+		{
+			var xmp = (PdfStream)new PdfStream().MakeIndirect(GetDocument());
+			xmp.GetOutputStream().Write(xmpMetadata);
+			xmp.Put(PdfName.Type, PdfName.Metadata);
+			xmp.Put(PdfName.Subtype, PdfName.XML);
+			Put(PdfName.Metadata, xmp);
+			return this;
+		}
+
+		/// <summary>Serializes XMP Metadata to byte array and sets it.</summary>
+		/// <param name="xmpMeta">
+		/// the
+		/// <see cref="XMPMeta"/>
+		/// object to set.
+		/// </param>
+		/// <param name="serializeOptions">
+		/// the
+		/// <see cref="SerializeOptions"/>
+		/// used while serialization.
+		/// </param>
+		/// <returns>
+		/// this
+		/// <see cref="PdfPage"/>
+		/// instance.
+		/// </returns>
+		public virtual PdfPage SetXmpMetadata(XMPMeta xmpMeta, SerializeOptions serializeOptions)
+		{
+			return SetXmpMetadata(XMPMetaFactory.SerializeToBuffer(xmpMeta, serializeOptions));
+		}
+
+		/// <summary>Serializes XMP Metadata to byte array and sets it.</summary>
+		/// <remarks>Serializes XMP Metadata to byte array and sets it. Uses padding equals to 2000.</remarks>
+		/// <param name="xmpMeta">
+		/// the
+		/// <see cref="XMPMeta"/>
+		/// object to set.
+		/// </param>
+		/// <returns>
+		/// this
+		/// <see cref="PdfPage"/>
+		/// instance.
+		/// </returns>
+		public virtual PdfPage SetXmpMetadata(XMPMeta xmpMeta)
+		{
+			var serializeOptions = new SerializeOptions();
+			serializeOptions.SetPadding(2000);
+			return SetXmpMetadata(xmpMeta, serializeOptions);
+		}
+
+		/// <summary>Gets the XMP Metadata object.</summary>
+		/// <returns>
+		/// 
+		/// <see cref="PdfStream"/>
+		/// object, that represent XMP Metadata.
+		/// </returns>
+		public virtual PdfStream GetXmpMetadata()
+		{
+			return GetPdfObject().GetAsStream(PdfName.Metadata);
+		}
+
+		/// <summary>Copies page to the specified document.</summary>
+		/// <remarks>
+		/// Copies page to the specified document.
+		/// <br /><br />
+		/// NOTE: Works only for pages from the document opened in reading mode, otherwise an exception is thrown.
+		/// </remarks>
+		/// <param name="toDocument">a document to copy page to.</param>
+		/// <returns>
+		/// copied
+		/// <see cref="PdfPage"/>.
+		/// </returns>
+		public virtual PdfPage CopyTo(PdfDocument toDocument)
+		{
+			return CopyTo(toDocument, null);
+		}
+
+		/// <summary>Copies page to the specified document.</summary>
+		/// <remarks>
+		/// Copies page to the specified document.
+		/// <br /><br />
+		/// NOTE: Works only for pages from the document opened in reading mode, otherwise an exception is thrown.
+		/// </remarks>
+		/// <param name="toDocument">a document to copy page to.</param>
+		/// <param name="copier">
+		/// a copier which bears a special copy logic. May be null.
+		/// It is recommended to use the same instance of
+		/// <see cref="IPdfPageExtraCopier"/>
+		/// for the same output document.
+		/// </param>
+		/// <returns>
+		/// copied
+		/// <see cref="PdfPage"/>.
+		/// </returns>
+		public virtual PdfPage CopyTo(PdfDocument toDocument, IPdfPageExtraCopier copier)
+		{
+			var dictionary = GetPdfObject().CopyTo(toDocument, PAGE_EXCLUDED_KEYS, true);
+			var page = GetDocument().GetPageFactory().CreatePdfPage(dictionary);
+			CopyInheritedProperties(page, toDocument);
+			foreach (var annot in GetAnnotations())
+			{
+				if (annot.GetSubtype().Equals(PdfName.Link))
+				{
+					GetDocument().StoreLinkAnnotation(page, (PdfLinkAnnotation)annot);
+				}
+				else
+				{
+					var newAnnot = PdfAnnotation.MakeAnnotation(annot.GetPdfObject().CopyTo(toDocument, JavaUtil.ArraysAsList
+						(PdfName.P, PdfName.Parent), true));
+					if (PdfName.Widget.Equals(annot.GetSubtype()))
+					{
+						RebuildFormFieldParent(annot.GetPdfObject(), newAnnot.GetPdfObject(), toDocument);
+					}
+					// P will be set in PdfPage#addAnnotation; Parent will be regenerated in PdfPageExtraCopier.
+					page.AddAnnotation(-1, newAnnot, false);
+				}
+			}
+			if (copier != null)
+			{
+				copier.Copy(this, page);
+			}
+			else
+			{
+				if (!toDocument.GetWriter().isUserWarnedAboutAcroFormCopying && GetDocument().HasAcroForm())
+				{
+					var logger = LogManager.GetLogger(typeof(PdfPage));
+					logger.Warn(LogMessageConstant.SOURCE_DOCUMENT_HAS_ACROFORM_DICTIONARY);
+					toDocument.GetWriter().isUserWarnedAboutAcroFormCopying = true;
+				}
+			}
+			return page;
+		}
+
+		/// <summary>Copies page as FormXObject to the specified document.</summary>
+		/// <param name="toDocument">a document to copy to.</param>
+		/// <returns>
+		/// copied
+		/// <see cref="PdfFormXObject"/>
+		/// object.
+		/// </returns>
+		public virtual PdfFormXObject CopyAsFormXObject(PdfDocument toDocument)
+		{
+			var xObject = new PdfFormXObject(GetCropBox());
+			foreach (var key in GetPdfObject().KeySet())
+			{
+				if (XOBJECT_EXCLUDED_KEYS.Contains(key))
+				{
+					continue;
+				}
+				var obj = GetPdfObject().Get(key);
+				if (!xObject.GetPdfObject().ContainsKey(key))
+				{
+					var copyObj = obj.CopyTo(toDocument, false);
+					xObject.GetPdfObject().Put(key, copyObj);
+				}
+			}
+			xObject.GetPdfObject().GetOutputStream().Write(GetContentBytes());
+			//Copy inherited resources
+			if (!xObject.GetPdfObject().ContainsKey(PdfName.Resources))
+			{
+				var copyResource = GetResources().GetPdfObject().CopyTo(toDocument, true);
+				xObject.GetPdfObject().Put(PdfName.Resources, copyResource);
+			}
+			return xObject;
+		}
+
+		/// <summary>
+		/// Gets the
+		/// <see cref="PdfDocument"/>
+		/// that owns that page, or
+		/// <see langword="null"/>
+		/// if such document isn't exist.
+		/// </summary>
+		/// <returns>
+		/// 
+		/// <see cref="PdfDocument"/>
+		/// that owns that page, or
+		/// <see langword="null"/>
+		/// if such document isn't exist.
+		/// </returns>
+		public virtual PdfDocument GetDocument()
+		{
+			if (GetPdfObject().GetIndirectReference() != null)
+			{
+				return GetPdfObject().GetIndirectReference().GetDocument();
+			}
+			return null;
+		}
+
+		/// <summary>Flushes page dictionary, its content streams, annotations and thumb image.</summary>
+		/// <remarks>
+		/// Flushes page dictionary, its content streams, annotations and thumb image.
+		/// <para />
+		/// If the page belongs to the document which is tagged, page flushing also triggers flushing of the tags,
+		/// which are considered to belong to the page. The logic that defines if the given tag (structure element) belongs
+		/// to the page is the following: if all the marked content references (dictionary or number references), that are the
+		/// descendants of the given structure element, belong to the current page - the tag is considered
+		/// to belong to the page. If tag has descendants from several pages - it is flushed, if all other pages except the
+		/// current one are flushed.
+		/// </remarks>
+		public override void Flush()
+		{
+			Flush(false);
+		}
+
+		/// <summary>Flushes page dictionary, its content streams, annotations and thumb image.</summary>
+		/// <remarks>
+		/// Flushes page dictionary, its content streams, annotations and thumb image. If <c>flushResourcesContentStreams</c> is true,
+		/// all content streams that are rendered on this page (like FormXObjects, annotation appearance streams, patterns)
+		/// and also all images associated with this page will also be flushed.
+		/// <para />
+		/// For notes about tag structure flushing see
+		/// <see cref="Flush()">PdfPage#flush() method</see>.
+		/// <para />
+		/// If <c>PdfADocument</c> is used, flushing will be applied only if <c>flushResourcesContentStreams</c> is true.
+		/// <para />
+		/// Be careful with handling document in which some of the pages are flushed. Keep in mind that flushed objects are
+		/// finalized and are completely written to the output stream. This frees their memory but makes
+		/// it impossible to modify or read data from them. Whenever there is an attempt to modify or to fetch
+		/// flushed object inner contents an exception will be thrown. Flushing is only possible for objects in the writing
+		/// and stamping modes, also its possible to flush modified objects in append mode.
+		/// </remarks>
+		/// <param name="flushResourcesContentStreams">
+		/// if true all content streams that are rendered on this page (like form xObjects,
+		/// annotation appearance streams, patterns) and also all images associated with this page
+		/// will be flushed.
+		/// </param>
+		public virtual void Flush(bool flushResourcesContentStreams)
+		{
+			if (IsFlushed())
+			{
+				return;
+			}
+			GetDocument().DispatchEvent(new PdfDocumentEvent(PdfDocumentEvent.END_PAGE, this));
+			if (GetDocument().IsTagged() && !GetDocument().GetStructTreeRoot().IsFlushed())
+			{
+				TryFlushPageTags();
+			}
+			if (resources == null)
+			{
+				// ensure that either resources are inherited or add empty resources dictionary
+				InitResources(false);
+			}
+			else
+			{
+				if (resources.IsModified() && !resources.IsReadOnly())
+				{
+					Put(PdfName.Resources, resources.GetPdfObject());
+				}
+			}
+			if (flushResourcesContentStreams)
+			{
+				GetDocument().CheckIsoConformance(this, IsoKey.PAGE);
+				FlushResourcesContentStreams();
+			}
+			var annots = GetAnnots(false);
+			if (annots != null && !annots.IsFlushed())
+			{
+				for (var i = 0; i < annots.Size(); ++i)
+				{
+					var a = annots.Get(i);
+					if (a != null)
+					{
+						a.MakeIndirect(GetDocument()).Flush();
+					}
+				}
+			}
+			var thumb = GetPdfObject().GetAsStream(PdfName.Thumb);
+			if (thumb != null)
+			{
+				thumb.Flush();
+			}
+			var contentsObj = GetPdfObject().Get(PdfName.Contents);
+			// avoid trying to operate with flushed /Contents array
+			if (contentsObj != null && !contentsObj.IsFlushed())
+			{
+				var contentStreamCount = GetContentStreamCount();
+				for (var i = 0; i < contentStreamCount; i++)
+				{
+					var contentStream = GetContentStream(i);
+					if (contentStream != null)
+					{
+						contentStream.Flush(false);
+					}
+				}
+			}
+			ReleaseInstanceFields();
+			base.Flush();
+		}
+
+		/// <summary>
+		/// Gets
+		/// <see cref="Rectangle"/>
+		/// object specified by page's Media Box, that defines the boundaries of the physical medium
+		/// on which the page shall be displayed or printed
+		/// </summary>
+		/// <returns>
+		/// 
+		/// <see cref="Rectangle"/>
+		/// object specified by page Media Box, expressed in default user space units.
+		/// </returns>
+		public virtual Rectangle GetMediaBox()
+		{
+			var mediaBox = GetPdfObject().GetAsArray(PdfName.MediaBox);
+			if (mediaBox == null)
+			{
+				mediaBox = (PdfArray)GetInheritedValue(PdfName.MediaBox, PdfObject.ARRAY);
+			}
+			if (mediaBox == null)
+			{
+				throw new PdfException(PdfException.CannotRetrieveMediaBoxAttribute);
+			}
+			int mediaBoxSize;
+			if ((mediaBoxSize = mediaBox.Size()) != 4)
+			{
+				if (mediaBoxSize > 4)
+				{
+					var logger = LogManager.GetLogger(typeof(PdfPage));
+					if (logger.IsErrorEnabled)
+					{
+						logger.Error(MessageFormatUtil.Format(LogMessageConstant.WRONG_MEDIABOX_SIZE_TOO_MANY_ARGUMENTS,
+							mediaBoxSize));
+					}
+				}
+				if (mediaBoxSize < 4)
+				{
+					throw new PdfException(PdfException.WRONGMEDIABOXSIZETOOFEWARGUMENTS).SetMessageParams(mediaBox.Size());
+				}
+			}
+			var llx = mediaBox.GetAsNumber(0);
+			var lly = mediaBox.GetAsNumber(1);
+			var urx = mediaBox.GetAsNumber(2);
+			var ury = mediaBox.GetAsNumber(3);
+			if (llx == null || lly == null || urx == null || ury == null)
+			{
+				throw new PdfException(PdfException.InvalidMediaBoxValue);
+			}
+			return new Rectangle(Math.Min(llx.FloatValue(), urx.FloatValue()), Math.Min(lly.FloatValue(), ury.FloatValue
+				()), Math.Abs(urx.FloatValue() - llx.FloatValue()), Math.Abs(ury.FloatValue() - lly.FloatValue()));
+		}
+
+		/// <summary>
+		/// Sets the Media Box object, that defines the boundaries of the physical medium
+		/// on which the page shall be displayed or printed.
+		/// </summary>
+		/// <param name="rectangle">
+		/// the
+		/// <see cref="Rectangle"/>
+		/// object to set, expressed in default user space units.
+		/// </param>
+		/// <returns>
+		/// this
+		/// <see cref="PdfPage"/>
+		/// instance.
+		/// </returns>
+		public virtual PdfPage SetMediaBox(Rectangle rectangle)
+		{
+			Put(PdfName.MediaBox, new PdfArray(rectangle));
+			return this;
+		}
+
+		/// <summary>
+		/// Gets the
+		/// <see cref="Rectangle"/>
+		/// specified by page's CropBox, that defines the visible region of default user space.
+		/// </summary>
+		/// <remarks>
+		/// Gets the
+		/// <see cref="Rectangle"/>
+		/// specified by page's CropBox, that defines the visible region of default user space.
+		/// When the page is displayed or printed, its contents shall be clipped (cropped) to this rectangle
+		/// and then shall be imposed on the output medium in some implementation-defined manner.
+		/// </remarks>
+		/// <returns>
+		/// the
+		/// <see cref="Rectangle"/>
+		/// object specified by pages's CropBox, expressed in default user space units.
+		/// MediaBox by default.
+		/// </returns>
+		public virtual Rectangle GetCropBox()
+		{
+			var cropBox = GetPdfObject().GetAsArray(PdfName.CropBox);
+			if (cropBox == null)
+			{
+				cropBox = (PdfArray)GetInheritedValue(PdfName.CropBox, PdfObject.ARRAY);
+				if (cropBox == null)
+				{
+					return GetMediaBox();
+				}
+			}
+			return cropBox.ToRectangle();
+		}
+
+		/// <summary>Sets the CropBox object, that defines the visible region of default user space.</summary>
+		/// <remarks>
+		/// Sets the CropBox object, that defines the visible region of default user space.
+		/// When the page is displayed or printed, its contents shall be clipped (cropped) to this rectangle
+		/// and then shall be imposed on the output medium in some implementation-defined manner.
+		/// </remarks>
+		/// <param name="rectangle">
+		/// the
+		/// <see cref="Rectangle"/>
+		/// object to set, expressed in default user space units.
+		/// </param>
+		/// <returns>
+		/// this
+		/// <see cref="PdfPage"/>
+		/// instance.
+		/// </returns>
+		public virtual PdfPage SetCropBox(Rectangle rectangle)
+		{
+			Put(PdfName.CropBox, new PdfArray(rectangle));
+			return this;
+		}
+
+		/// <summary>
+		/// Sets the BleedBox object, that defines the region to which the contents of the page shall be clipped
+		/// when output in a production environment.
+		/// </summary>
+		/// <param name="rectangle">
+		/// the
+		/// <see cref="Rectangle"/>
+		/// object to set, expressed in default user space units.
+		/// </param>
+		/// <returns>
+		/// this
+		/// <see cref="PdfPage"/>
+		/// instance.
+		/// </returns>
+		public virtual PdfPage SetBleedBox(Rectangle rectangle)
+		{
+			Put(PdfName.BleedBox, new PdfArray(rectangle));
+			return this;
+		}
+
+		/// <summary>
+		/// Gets the
+		/// <see cref="Rectangle"/>
+		/// object specified by page's BleedBox, that define the region to which the
+		/// contents of the page shall be clipped when output in a production environment.
+		/// </summary>
+		/// <returns>
+		/// the
+		/// <see cref="Rectangle"/>
+		/// object specified by page's BleedBox, expressed in default user space units.
+		/// CropBox by default.
+		/// </returns>
+		public virtual Rectangle GetBleedBox()
+		{
+			var bleedBox = GetPdfObject().GetAsRectangle(PdfName.BleedBox);
+			return bleedBox == null ? GetCropBox() : bleedBox;
+		}
+
+		/// <summary>
+		/// Sets the ArtBox object, that define the extent of the page’s meaningful content
+		/// (including potential white space) as intended by the page’s creator.
+		/// </summary>
+		/// <param name="rectangle">
+		/// the
+		/// <see cref="Rectangle"/>
+		/// object to set, expressed in default user space units.
+		/// </param>
+		/// <returns>
+		/// this
+		/// <see cref="PdfPage"/>
+		/// instance.
+		/// </returns>
+		public virtual PdfPage SetArtBox(Rectangle rectangle)
+		{
+			if (GetPdfObject().GetAsRectangle(PdfName.TrimBox) != null)
+			{
+				GetPdfObject().Remove(PdfName.TrimBox);
+				var logger = LogManager.GetLogger(typeof(PdfPage));
+				logger.Warn(LogMessageConstant.ONLY_ONE_OF_ARTBOX_OR_TRIMBOX_CAN_EXIST_IN_THE_PAGE);
+			}
+			Put(PdfName.ArtBox, new PdfArray(rectangle));
+			return this;
+		}
+
+		/// <summary>
+		/// Gets the
+		/// <see cref="Rectangle"/>
+		/// object specified by page's ArtBox, that define the extent of the page’s
+		/// meaningful content (including potential white space) as intended by the page’s creator.
+		/// </summary>
+		/// <returns>
+		/// the
+		/// <see cref="Rectangle"/>
+		/// object specified by page's ArtBox, expressed in default user space units.
+		/// CropBox by default.
+		/// </returns>
+		public virtual Rectangle GetArtBox()
+		{
+			var artBox = GetPdfObject().GetAsRectangle(PdfName.ArtBox);
+			return artBox == null ? GetCropBox() : artBox;
+		}
+
+		/// <summary>Sets the TrimBox object, that define the intended dimensions of the finished page after trimming.
+		///     </summary>
+		/// <param name="rectangle">
+		/// the
+		/// <see cref="Rectangle"/>
+		/// object to set, expressed in default user space units.
+		/// </param>
+		/// <returns>
+		/// this
+		/// <see cref="PdfPage"/>
+		/// instance.
+		/// </returns>
+		public virtual PdfPage SetTrimBox(Rectangle rectangle)
+		{
+			if (GetPdfObject().GetAsRectangle(PdfName.ArtBox) != null)
+			{
+				GetPdfObject().Remove(PdfName.ArtBox);
+				var logger = LogManager.GetLogger(typeof(PdfPage));
+				logger.Warn(LogMessageConstant.ONLY_ONE_OF_ARTBOX_OR_TRIMBOX_CAN_EXIST_IN_THE_PAGE);
+			}
+			Put(PdfName.TrimBox, new PdfArray(rectangle));
+			return this;
+		}
+
+		/// <summary>
+		/// Gets the
+		/// <see cref="Rectangle"/>
+		/// object specified by page's TrimBox object,
+		/// that define the intended dimensions of the finished page after trimming.
+		/// </summary>
+		/// <returns>
+		/// the
+		/// <see cref="Rectangle"/>
+		/// object specified by page's TrimBox, expressed in default user space units.
+		/// CropBox by default.
+		/// </returns>
+		public virtual Rectangle GetTrimBox()
+		{
+			var trimBox = GetPdfObject().GetAsRectangle(PdfName.TrimBox);
+			return trimBox == null ? GetCropBox() : trimBox;
+		}
+
+		/// <summary>Get decoded bytes for the whole page content.</summary>
+		/// <returns>byte array.</returns>
+		public virtual byte[] GetContentBytes()
+		{
+			try
+			{
+				var handler = GetDocument().memoryLimitsAwareHandler;
+				var usedMemory = null == handler ? -1 : handler.GetAllMemoryUsedForDecompression();
+				var baos = new MemoryLimitsAwareOutputStream();
+				var streamCount = GetContentStreamCount();
+				byte[] streamBytes;
+				for (var i = 0; i < streamCount; i++)
+				{
+					streamBytes = GetStreamBytes(i);
+					// usedMemory has changed, that means that some of currently processed pdf streams are suspicious
+					if (null != handler && usedMemory < handler.GetAllMemoryUsedForDecompression())
+					{
+						baos.SetMaxStreamSize(handler.GetMaxSizeOfSingleDecompressedPdfStream());
+					}
+					baos.Write(streamBytes);
+					if (0 != streamBytes.Length && !TextUtil.IsWhiteSpace((char)streamBytes[streamBytes.Length -
+						 1]))
+					{
+						baos.Write('\n');
+					}
+				}
+				return baos.ToArray();
+			}
+			catch (IOException ioe)
+			{
+				throw new PdfException(PdfException.CannotGetContentBytes, ioe, this);
+			}
+		}
+
+		/// <summary>Gets decoded bytes of a certain stream of a page content.</summary>
+		/// <param name="index">index of stream inside Content.</param>
+		/// <returns>byte array.</returns>
+		public virtual byte[] GetStreamBytes(int index)
+		{
+			return GetContentStream(index).GetBytes();
+		}
+
+		/// <summary>Calculates and returns the next available for this page's content stream MCID reference.</summary>
+		/// <returns>calculated MCID reference.</returns>
+		public virtual int GetNextMcid()
+		{
+			if (!GetDocument().IsTagged())
+			{
+				throw new PdfException(PdfException.MustBeATaggedDocument);
+			}
+			if (mcid == -1)
+			{
+				var structTreeRoot = GetDocument().GetStructTreeRoot();
+				mcid = structTreeRoot.GetNextMcidForPage(this);
+			}
+			return mcid++;
+		}
+
+		/// <summary>Gets the key of the page’s entry in the structural parent tree.</summary>
+		/// <returns>
+		/// the key of the page’s entry in the structural parent tree.
+		/// If page has no entry in the structural parent tree, returned value is -1.
+		/// </returns>
+		public virtual int GetStructParentIndex()
+		{
+			return GetPdfObject().GetAsNumber(PdfName.StructParents) != null ? GetPdfObject().GetAsNumber(PdfName.StructParents
+				).IntValue() : -1;
+		}
+
+		/// <summary>Helper method to add an additional action to this page.</summary>
+		/// <remarks>
+		/// Helper method to add an additional action to this page.
+		/// May be used in chain.
+		/// </remarks>
+		/// <param name="key">
+		/// a
+		/// <see cref="PdfName"/>
+		/// specifying the name of an additional action
+		/// </param>
+		/// <param name="action">
+		/// the
+		/// <see cref="PdfAction"/>
+		/// to add as an additional action
+		/// </param>
+		/// <returns>
+		/// this
+		/// <see cref="PdfPage"/>
+		/// instance.
+		/// </returns>
+		public virtual PdfPage SetAdditionalAction(PdfName key, PdfAction action)
+		{
+			PdfAction.SetAdditionalAction(this, key, action);
+			return this;
+		}
+
+		/// <summary>
+		/// Gets array of annotation dictionaries that shall contain indirect references
+		/// to all annotations associated with the page.
+		/// </summary>
+		/// <returns>
+		/// the
+		/// <see cref="IList"/>
+		/// &lt;
+		/// <see cref="PdfAnnotation"/>
+		/// &gt; containing all page's annotations.
+		/// </returns>
+		public virtual IList<PdfAnnotation> GetAnnotations()
+		{
+			IList<PdfAnnotation> annotations = new List<PdfAnnotation>();
+			var annots = GetPdfObject().GetAsArray(PdfName.Annots);
+			if (annots != null)
+			{
+				for (var i = 0; i < annots.Size(); i++)
+				{
+					var annot = annots.GetAsDictionary(i);
+					if (annot == null)
+					{
+						continue;
+					}
+					var annotation = PdfAnnotation.MakeAnnotation(annot);
+					if (annotation == null)
+					{
+						continue;
+					}
+					var hasBeenNotModified = annot.GetIndirectReference() != null && !annot.GetIndirectReference().CheckState
+						(PdfObject.MODIFIED);
+					annotations.Add(annotation.SetPage(this));
+					if (hasBeenNotModified)
+					{
+						annot.GetIndirectReference().ClearState(PdfObject.MODIFIED);
+						annot.ClearState(PdfObject.FORBID_RELEASE);
+					}
+				}
+			}
+			return annotations;
+		}
+
+		/// <summary>Checks if page contains the specified annotation.</summary>
+		/// <param name="annotation">
+		/// the
+		/// <see cref="PdfAnnotation"/>
+		/// to check.
+		/// </param>
+		/// <returns>
+		/// 
+		/// <see langword="true"/>
+		/// if page contains specified annotation and
+		/// <see langword="false"/>
+		/// otherwise.
+		/// </returns>
+		public virtual bool ContainsAnnotation(PdfAnnotation annotation)
+		{
+			foreach (var a in GetAnnotations())
+			{
+				if (a.GetPdfObject().Equals(annotation.GetPdfObject()))
+				{
+					return true;
+				}
+			}
+			return false;
+		}
+
+		/// <summary>Adds specified annotation to the end of annotations array and tagged it.</summary>
+		/// <remarks>
+		/// Adds specified annotation to the end of annotations array and tagged it.
+		/// May be used in chain.
+		/// </remarks>
+		/// <param name="annotation">
+		/// the
+		/// <see cref="PdfAnnotation"/>
+		/// to add.
+		/// </param>
+		/// <returns>
+		/// this
+		/// <see cref="PdfPage"/>
+		/// instance.
+		/// </returns>
+		public virtual PdfPage AddAnnotation(PdfAnnotation annotation)
+		{
+			return AddAnnotation(-1, annotation, true);
+		}
+
+		/// <summary>
+		/// Adds specified
+		/// <see cref="PdfAnnotation"/>
+		/// to specified index in annotations array with or without autotagging.
+		/// </summary>
+		/// <remarks>
+		/// Adds specified
+		/// <see cref="PdfAnnotation"/>
+		/// to specified index in annotations array with or without autotagging.
+		/// May be used in chain.
+		/// </remarks>
+		/// <param name="index">
+		/// the index at which specified annotation will be added. If
+		/// <c>-1</c>
+		/// then annotation will be added
+		/// to the end of array.
+		/// </param>
+		/// <param name="annotation">
+		/// the
+		/// <see cref="PdfAnnotation"/>
+		/// to add.
+		/// </param>
+		/// <param name="tagAnnotation">
+		/// if
+		/// <see langword="true"/>
+		/// the added annotation will be autotagged. <para />
+		/// (see
+		/// <see cref="TagStructureContext.GetAutoTaggingPointer()"/>
+		/// )
+		/// </param>
+		/// <returns>
+		/// this
+		/// <see cref="PdfPage"/>
+		/// instance.
+		/// </returns>
+		public virtual PdfPage AddAnnotation(int index, PdfAnnotation annotation, bool tagAnnotation
+			)
+		{
+			if (GetDocument().IsTagged())
+			{
+				if (tagAnnotation)
+				{
+					var tagPointer = GetDocument().GetTagStructureContext().GetAutoTaggingPointer();
+					var prevPage = tagPointer.GetCurrentPage();
+					tagPointer.SetPageForTagging(this).AddAnnotationTag(annotation);
+					if (prevPage != null)
+					{
+						tagPointer.SetPageForTagging(prevPage);
+					}
+				}
+				if (GetTabOrder() == null)
+				{
+					SetTabOrder(PdfName.S);
+				}
+			}
+			var annots = GetAnnots(true);
+			if (index == -1)
+			{
+				annots.Add(annotation.SetPage(this).GetPdfObject());
+			}
+			else
+			{
+				annots.Add(index, annotation.SetPage(this).GetPdfObject());
+			}
+			if (annots.GetIndirectReference() == null)
+			{
+				//Annots are not indirect so page needs to be marked as modified
+				SetModified();
+			}
+			else
+			{
+				//Annots are indirect so need to be marked as modified
+				annots.SetModified();
+			}
+			return this;
+		}
+
+		/// <summary>Removes an annotation from the page.</summary>
+		/// <remarks>
+		/// Removes an annotation from the page.
+		/// <br /><br />
+		/// NOTE: If document is tagged, PdfDocument's PdfTagStructure instance will point at annotation tag parent after method call.
+		/// </remarks>
+		/// <param name="annotation">an annotation to be removed.</param>
+		/// <returns>
+		/// this
+		/// <see cref="PdfPage"/>
+		/// instance.
+		/// </returns>
+		public virtual PdfPage RemoveAnnotation(PdfAnnotation annotation)
+		{
+			var annots = GetAnnots(false);
+			if (annots != null)
+			{
+				annots.Remove(annotation.GetPdfObject());
+				if (annots.IsEmpty())
+				{
+					GetPdfObject().Remove(PdfName.Annots);
+					SetModified();
+				}
+				else
+				{
+					if (annots.GetIndirectReference() == null)
+					{
+						SetModified();
+					}
+				}
+			}
+			if (GetDocument().IsTagged())
+			{
+				var tagPointer = GetDocument().GetTagStructureContext().RemoveAnnotationTag(annotation);
+				if (tagPointer != null)
+				{
+					var standardAnnotTagRole = StandardRoles.ANNOT.Equals(tagPointer.GetRole()) || StandardRoles.FORM.Equals(
+						tagPointer.GetRole());
+					if (tagPointer.GetKidsRoles().Count == 0 && standardAnnotTagRole)
+					{
+						tagPointer.RemoveTag();
+					}
+				}
+			}
+			return this;
+		}
+
+		/// <summary>
+		/// Gets the number of
+		/// <see cref="PdfAnnotation"/>
+		/// associated with this page.
+		/// </summary>
+		/// <returns>
+		/// the
+		/// <c>int</c>
+		/// number of
+		/// <see cref="PdfAnnotation"/>
+		/// associated with this page.
+		/// </returns>
+		public virtual int GetAnnotsSize()
+		{
+			var annots = GetAnnots(false);
+			if (annots == null)
+			{
+				return 0;
+			}
+			return annots.Size();
+		}
+
+		/// <summary>This method gets outlines of a current page</summary>
+		/// <param name="updateOutlines">
+		/// if the flag is
+		/// <see langword="true"/>
+		/// , the method reads the whole document and creates outline tree.
+		/// If the flag is
+		/// <see langword="false"/>
+		/// , the method gets cached outline tree
+		/// (if it was cached via calling getOutlines method before).
+		/// </param>
+		/// <returns>return all outlines of a current page</returns>
+		public virtual IList<PdfOutline> GetOutlines(bool updateOutlines)
+		{
+			GetDocument().GetOutlines(updateOutlines);
+			return GetDocument().GetCatalog().GetPagesWithOutlines().Get(GetPdfObject());
+		}
+
+		/// <returns>
+		/// true - if in case the page has a rotation, then new content will be automatically rotated in the
+		/// opposite direction. On the rotated page this would look like if new content ignores page rotation.
+		/// </returns>
+		public virtual bool IsIgnorePageRotationForContent()
+		{
+			return ignorePageRotationForContent;
+		}
+
+		/// <summary>
+		/// If true - defines that in case the page has a rotation, then new content will be automatically rotated in the
+		/// opposite direction.
+		/// </summary>
+		/// <remarks>
+		/// If true - defines that in case the page has a rotation, then new content will be automatically rotated in the
+		/// opposite direction. On the rotated page this would look like if new content ignores page rotation.
+		/// Default value -
+		/// <see langword="false"/>.
+		/// </remarks>
+		/// <param name="ignorePageRotationForContent">- true to ignore rotation of the new content on the rotated page.
+		///     </param>
+		/// <returns>
+		/// this
+		/// <see cref="PdfPage"/>
+		/// instance.
+		/// </returns>
+		public virtual PdfPage SetIgnorePageRotationForContent(bool ignorePageRotationForContent)
+		{
+			this.ignorePageRotationForContent = ignorePageRotationForContent;
+			return this;
+		}
+
+		/// <summary>This method adds or replaces a page label.</summary>
+		/// <param name="numberingStyle">
+		/// The numbering style that shall be used for the numeric portion of each page label.
+		/// May be NULL
+		/// </param>
+		/// <param name="labelPrefix">The label prefix for page labels in this range. May be NULL</param>
+		/// <returns>
+		/// this
+		/// <see cref="PdfPage"/>
+		/// instance.
+		/// </returns>
+		public virtual PdfPage SetPageLabel(PageLabelNumberingStyle? numberingStyle, string labelPrefix
+			)
+		{
+			return SetPageLabel(numberingStyle, labelPrefix, 1);
+		}
+
+		/// <summary>This method adds or replaces a page label.</summary>
+		/// <param name="numberingStyle">
+		/// The numbering style that shall be used for the numeric portion of each page label.
+		/// May be NULL
+		/// </param>
+		/// <param name="labelPrefix">The label prefix for page labels in this range. May be NULL</param>
+		/// <param name="firstPage">
+		/// The value of the numeric portion for the first page label in the range. Must be greater or
+		/// equal 1.
+		/// </param>
+		/// <returns>
+		/// this
+		/// <see cref="PdfPage"/>
+		/// instance.
+		/// </returns>
+		public virtual PdfPage SetPageLabel(PageLabelNumberingStyle? numberingStyle, string labelPrefix
+			, int firstPage)
+		{
+			if (firstPage < 1)
+			{
+				throw new PdfException(PdfException.InAPageLabelThePageNumbersMustBeGreaterOrEqualTo1);
+			}
+			var pageLabel = new PdfDictionary();
+			if (numberingStyle != null)
+			{
+				switch (numberingStyle)
+				{
+					case PageLabelNumberingStyle.DECIMAL_ARABIC_NUMERALS:
+						{
+							pageLabel.Put(PdfName.S, PdfName.D);
+							break;
+						}
+
+					case PageLabelNumberingStyle.UPPERCASE_ROMAN_NUMERALS:
+						{
+							pageLabel.Put(PdfName.S, PdfName.R);
+							break;
+						}
+
+					case PageLabelNumberingStyle.LOWERCASE_ROMAN_NUMERALS:
+						{
+							pageLabel.Put(PdfName.S, PdfName.r);
+							break;
+						}
+
+					case PageLabelNumberingStyle.UPPERCASE_LETTERS:
+						{
+							pageLabel.Put(PdfName.S, PdfName.A);
+							break;
+						}
+
+					case PageLabelNumberingStyle.LOWERCASE_LETTERS:
+						{
+							pageLabel.Put(PdfName.S, PdfName.a);
+							break;
+						}
+				}
+			}
+			if (labelPrefix != null)
+			{
+				pageLabel.Put(PdfName.P, new PdfString(labelPrefix));
+			}
+			if (firstPage != 1)
+			{
+				pageLabel.Put(PdfName.St, new PdfNumber(firstPage));
+			}
+			GetDocument().GetCatalog().GetPageLabelsTree(true).AddEntry(GetDocument().GetPageNumber(this) - 1, pageLabel
+				);
+			return this;
+		}
+
+		/// <summary>Sets a name specifying the tab order that shall be used for annotations on the page.</summary>
+		/// <remarks>
+		/// Sets a name specifying the tab order that shall be used for annotations on the page.
+		/// The possible values are
+		/// <see cref="PdfName.R"/>
+		/// (row order),
+		/// <see cref="PdfName.C"/>
+		/// (column order), and
+		/// <see cref="PdfName.S"/>
+		/// (structure order).
+		/// Beginning with PDF 2.0, the possible values also include
+		/// <see cref="PdfName.A"/>
+		/// (annotations array order) and
+		/// <see cref="PdfName.W"/>
+		/// (widget order).
+		/// See ISO 32000 12.5, "Annotations" for details.
+		/// </remarks>
+		/// <param name="tabOrder">
+		/// a
+		/// <see cref="PdfName"/>
+		/// specifying the annotations tab order. See method description for the allowed values.
+		/// </param>
+		/// <returns>
+		/// this
+		/// <see cref="PdfPage"/>
+		/// instance.
+		/// </returns>
+		public virtual PdfPage SetTabOrder(PdfName tabOrder)
+		{
+			Put(PdfName.Tabs, tabOrder);
+			return this;
+		}
+
+		/// <summary>Gets a name specifying the tab order that shall be used for annotations on the page.</summary>
+		/// <remarks>
+		/// Gets a name specifying the tab order that shall be used for annotations on the page.
+		/// The possible values are
+		/// <see cref="PdfName.R"/>
+		/// (row order),
+		/// <see cref="PdfName.C"/>
+		/// (column order), and
+		/// <see cref="PdfName.S"/>
+		/// (structure order).
+		/// Beginning with PDF 2.0, the possible values also include
+		/// <see cref="PdfName.A"/>
+		/// (annotations array order) and
+		/// <see cref="PdfName.W"/>
+		/// (widget order).
+		/// See ISO 32000 12.5, "Annotations" for details.
+		/// </remarks>
+		/// <returns>
+		/// a
+		/// <see cref="PdfName"/>
+		/// specifying the annotations tab order or null if tab order is not defined.
+		/// </returns>
+		public virtual PdfName GetTabOrder()
+		{
+			return GetPdfObject().GetAsName(PdfName.Tabs);
+		}
+
+		/// <summary>Sets a stream object that shall define the page’s thumbnail image.</summary>
+		/// <remarks>
+		/// Sets a stream object that shall define the page’s thumbnail image. Thumbnail images represent the contents of
+		/// its pages in miniature form
+		/// </remarks>
+		/// <param name="thumb">the thumbnail image</param>
+		/// <returns>
+		/// this
+		/// <see cref="PdfPage"/>
+		/// object
+		/// </returns>
+		public virtual PdfPage SetThumbnailImage(PdfImageXObject thumb)
+		{
+			return Put(PdfName.Thumb, thumb.GetPdfObject());
+		}
+
+		/// <summary>Sets a stream object that shall define the page’s thumbnail image.</summary>
+		/// <remarks>
+		/// Sets a stream object that shall define the page’s thumbnail image. Thumbnail images represent the contents of
+		/// its pages in miniature form
+		/// </remarks>
+		/// <returns>the thumbnail image, or <c>null</c> if it is not present</returns>
+		public virtual PdfImageXObject GetThumbnailImage()
+		{
+			var thumbStream = GetPdfObject().GetAsStream(PdfName.Thumb);
+			return thumbStream != null ? new PdfImageXObject(thumbStream) : null;
+		}
+
+		/// <summary>
+		/// Adds
+		/// <see cref="PdfOutputIntent"/>
+		/// that shall specify the colour characteristics of output devices
+		/// on which the page might be rendered.
+		/// </summary>
+		/// <param name="outputIntent">
+		/// 
+		/// <see cref="PdfOutputIntent"/>
+		/// to add.
+		/// </param>
+		/// <returns>
+		/// this
+		/// <see cref="PdfPage"/>
+		/// object
+		/// </returns>
+		/// <seealso cref="PdfOutputIntent"/>
+		public virtual PdfPage AddOutputIntent(PdfOutputIntent outputIntent)
+		{
+			if (outputIntent == null)
+			{
+				return this;
+			}
+			var outputIntents = GetPdfObject().GetAsArray(PdfName.OutputIntents);
+			if (outputIntents == null)
+			{
+				outputIntents = new PdfArray();
+				Put(PdfName.OutputIntents, outputIntents);
+			}
+			outputIntents.Add(outputIntent.GetPdfObject());
+			return this;
+		}
+
+		/// <summary>
+		/// Helper method that associate specified value with specified key in the underlined
+		/// <see cref="PdfDictionary"/>.
+		/// </summary>
+		/// <remarks>
+		/// Helper method that associate specified value with specified key in the underlined
+		/// <see cref="PdfDictionary"/>.
+		/// May be used in chain.
+		/// </remarks>
+		/// <param name="key">
+		/// the
+		/// <see cref="PdfName"/>
+		/// key with which the specified value is to be associated.
+		/// </param>
+		/// <param name="value">
+		/// the
+		/// <see cref="PdfObject"/>
+		/// value to be associated with the specified key.
+		/// </param>
+		/// <returns>
+		/// this
+		/// <see cref="PdfPage"/>
+		/// object.
+		/// </returns>
+		public virtual PdfPage Put(PdfName key, PdfObject value)
+		{
+			GetPdfObject().Put(key, value);
+			SetModified();
+			return this;
+		}
+
+		/// <summary>
+		/// This flag is meaningful for the case, when page rotation is applied and ignorePageRotationForContent
+		/// is set to true.
+		/// </summary>
+		/// <remarks>
+		/// This flag is meaningful for the case, when page rotation is applied and ignorePageRotationForContent
+		/// is set to true. NOTE: It is needed for the internal usage.
+		/// <br /><br />
+		/// This flag defines if inverse matrix (which rotates content into the opposite direction from page rotation
+		/// direction in order to give the impression of the not rotated text) is already applied to the page content stream.
+		/// See
+		/// <see cref="SetIgnorePageRotationForContent(bool)"/>
+		/// </remarks>
+		/// <returns>true, if inverse matrix is already applied, false otherwise.</returns>
+		public virtual bool IsPageRotationInverseMatrixWritten()
+		{
+			return pageRotationInverseMatrixWritten;
+		}
+
+		/// <summary>NOTE: For internal usage! Use this method only if you know what you are doing.</summary>
+		/// <remarks>
+		/// NOTE: For internal usage! Use this method only if you know what you are doing.
+		/// <br /><br />
+		/// This method is called when inverse matrix (which rotates content into the opposite direction from page rotation
+		/// direction in order to give the impression of the not rotated text) is applied to the page content stream.
+		/// See
+		/// <see cref="SetIgnorePageRotationForContent(bool)"/>
+		/// </remarks>
+		public virtual void SetPageRotationInverseMatrixWritten()
+		{
+			// this method specifically return void to discourage it's unintended usage
+			pageRotationInverseMatrixWritten = true;
+		}
+
+		/// <summary>Adds file associated with PDF page and identifies the relationship between them.</summary>
+		/// <remarks>
+		/// Adds file associated with PDF page and identifies the relationship between them.
+		/// <para />
+		/// Associated files may be used in Pdf/A-3 and Pdf 2.0 documents.
+		/// The method adds file to array value of the AF key in the page dictionary.
+		/// If description is provided, it also will add file description to catalog Names tree.
+		/// <para />
+		/// For associated files their associated file specification dictionaries shall include the AFRelationship key
+		/// </remarks>
+		/// <param name="description">the file description</param>
+		/// <param name="fs">file specification dictionary of associated file</param>
+		public virtual void AddAssociatedFile(string description, PdfFileSpec fs)
+		{
+			if (null == ((PdfDictionary)fs.GetPdfObject()).Get(PdfName.AFRelationship))
+			{
+				var logger = LogManager.GetLogger(typeof(PdfPage));
+				logger.Error(LogMessageConstant.ASSOCIATED_FILE_SPEC_SHALL_INCLUDE_AFRELATIONSHIP);
+			}
+			if (null != description)
+			{
+				GetDocument().GetCatalog().AddNameToNameTree(description, fs.GetPdfObject(), PdfName.EmbeddedFiles);
+			}
+			var afArray = GetPdfObject().GetAsArray(PdfName.AF);
+			if (afArray == null)
+			{
+				afArray = new PdfArray();
+				Put(PdfName.AF, afArray);
+			}
+			afArray.Add(fs.GetPdfObject());
+		}
+
+		/// <summary>
+		/// <para />
+		/// Adds file associated with PDF page and identifies the relationship between them.
+		/// </summary>
+		/// <remarks>
+		/// <para />
+		/// Adds file associated with PDF page and identifies the relationship between them.
+		/// <para />
+		/// Associated files may be used in Pdf/A-3 and Pdf 2.0 documents.
+		/// The method adds file to array value of the AF key in the page dictionary.
+		/// <para />
+		/// For associated files their associated file specification dictionaries shall include the AFRelationship key
+		/// </remarks>
+		/// <param name="fs">file specification dictionary of associated file</param>
+		public virtual void AddAssociatedFile(PdfFileSpec fs)
+		{
+			AddAssociatedFile(null, fs);
+		}
+
+		/// <summary>Returns files associated with PDF page.</summary>
+		/// <param name="create">defines whether AF arrays will be created if it doesn't exist</param>
+		/// <returns>associated files array</returns>
+		public virtual PdfArray GetAssociatedFiles(bool create)
+		{
+			var afArray = GetPdfObject().GetAsArray(PdfName.AF);
+			if (afArray == null && create)
+			{
+				afArray = new PdfArray();
+				Put(PdfName.AF, afArray);
+			}
+			return afArray;
+		}
+
+		internal virtual void TryFlushPageTags()
+		{
+			try
+			{
+				if (!GetDocument().isClosing)
+				{
+					GetDocument().GetTagStructureContext().FlushPageTags(this);
+				}
+				GetDocument().GetStructTreeRoot().SavePageStructParentIndexIfNeeded(this);
+			}
+			catch (Exception ex)
+			{
+				throw new PdfException(PdfException.TagStructureFlushingFailedItMightBeCorrupted, ex);
+			}
+		}
+
+		internal virtual void ReleaseInstanceFields()
+		{
+			resources = null;
+			parentPages = null;
+		}
+
+		protected internal override bool IsWrappedObjectMustBeIndirect()
+		{
+			return true;
+		}
+
+		private PdfArray GetAnnots(bool create)
+		{
+			var annots = GetPdfObject().GetAsArray(PdfName.Annots);
+			if (annots == null && create)
+			{
+				annots = new PdfArray();
+				Put(PdfName.Annots, annots);
+			}
+			return annots;
+		}
+
+		private PdfObject GetInheritedValue(PdfName pdfName, int type)
+		{
+			if (parentPages == null)
+			{
+				parentPages = GetDocument().GetCatalog().GetPageTree().FindPageParent(this);
+			}
+			var val = GetInheritedValue(parentPages, pdfName);
+			return val != null && val.GetObjectType() == type ? val : null;
+		}
+
+		private static PdfObject GetInheritedValue(PdfPages parentPages, PdfName pdfName)
+		{
+			if (parentPages != null)
+			{
+				var parentDictionary = parentPages.GetPdfObject();
+				var value = parentDictionary.Get(pdfName);
+				if (value != null)
+				{
+					return value;
+				}
+
+				return GetInheritedValue(parentPages.GetParent(), pdfName);
+			}
+			return null;
+		}
+
+		private PdfStream NewContentStream(bool before)
+		{
+			var contents = GetPdfObject().Get(PdfName.Contents);
+			PdfArray array;
+			if (contents is PdfStream)
+			{
+				array = new PdfArray();
+				if (contents.GetIndirectReference() != null)
+				{
+					// Explicitly using object indirect reference here in order to correctly process released objects.
+					array.Add(contents.GetIndirectReference());
+				}
+				else
+				{
+					array.Add(contents);
+				}
+				Put(PdfName.Contents, array);
+			}
+			else
+			{
+				if (contents is PdfArray)
+				{
+					array = (PdfArray)contents;
+				}
+				else
+				{
+					array = null;
+				}
+			}
+			var contentStream = (PdfStream)new PdfStream().MakeIndirect(GetDocument());
+			if (array != null)
+			{
+				if (before)
+				{
+					array.Add(0, contentStream);
+				}
+				else
+				{
+					array.Add(contentStream);
+				}
+				if (array.GetIndirectReference() != null)
+				{
+					array.SetModified();
+				}
+				else
+				{
+					SetModified();
+				}
+			}
+			else
+			{
+				Put(PdfName.Contents, contentStream);
+			}
+			return contentStream;
+		}
+
+		private void FlushResourcesContentStreams()
+		{
+			FlushResourcesContentStreams(GetResources().GetPdfObject());
+			var annots = GetAnnots(false);
+			if (annots != null && !annots.IsFlushed())
+			{
+				for (var i = 0; i < annots.Size(); ++i)
+				{
+					var apDict = annots.GetAsDictionary(i).GetAsDictionary(PdfName.AP);
+					if (apDict != null)
+					{
+						FlushAppearanceStreams(apDict);
+					}
+				}
+			}
+		}
+
+		private void FlushResourcesContentStreams(PdfDictionary resources)
+		{
+			if (resources != null && !resources.IsFlushed())
+			{
+				FlushWithResources(resources.GetAsDictionary(PdfName.XObject));
+				FlushWithResources(resources.GetAsDictionary(PdfName.Pattern));
+				FlushWithResources(resources.GetAsDictionary(PdfName.Shading));
+			}
+		}
+
+		private void FlushWithResources(PdfDictionary objsCollection)
+		{
+			if (objsCollection == null || objsCollection.IsFlushed())
+			{
+				return;
+			}
+			foreach (var obj in objsCollection.Values())
+			{
+				if (obj.IsFlushed())
+				{
+					continue;
+				}
+				FlushResourcesContentStreams(((PdfDictionary)obj).GetAsDictionary(PdfName.Resources));
+				FlushMustBeIndirectObject(obj);
+			}
+		}
+
+		private void FlushAppearanceStreams(PdfDictionary appearanceStreamsDict)
+		{
+			if (appearanceStreamsDict.IsFlushed())
+			{
+				return;
+			}
+			foreach (var val in appearanceStreamsDict.Values())
+			{
+				if (val is PdfDictionary)
+				{
+					var ap = (PdfDictionary)val;
+					if (ap.IsDictionary())
+					{
+						FlushAppearanceStreams(ap);
+					}
+					else
+					{
+						if (ap.IsStream())
+						{
+							FlushMustBeIndirectObject(ap);
+						}
+					}
+				}
+			}
+		}
+
+		private void FlushMustBeIndirectObject(PdfObject obj)
+		{
+			// TODO DEVSIX-744
+			obj.MakeIndirect(GetDocument()).Flush();
+		}
+
+		private void CopyInheritedProperties(PdfPage copyPdfPage, PdfDocument pdfDocument)
+		{
+			if (copyPdfPage.GetPdfObject().Get(PdfName.Resources) == null)
+			{
+				var copyResource = pdfDocument.GetWriter().CopyObject(GetResources().GetPdfObject(), pdfDocument, false
+					);
+				copyPdfPage.GetPdfObject().Put(PdfName.Resources, copyResource);
+			}
+			if (copyPdfPage.GetPdfObject().Get(PdfName.MediaBox) == null)
+			{
+				//media box shall be in any case
+				copyPdfPage.SetMediaBox(GetMediaBox());
+			}
+			if (copyPdfPage.GetPdfObject().Get(PdfName.CropBox) == null)
+			{
+				//original pdfObject don't have CropBox, otherwise copyPdfPage will contain it
+				var cropBox = (PdfArray)GetInheritedValue(PdfName.CropBox, PdfObject.ARRAY);
+				//crop box is optional, we shall not set default value.
+				if (cropBox != null)
+				{
+					copyPdfPage.Put(PdfName.CropBox, cropBox.CopyTo(pdfDocument));
+				}
+			}
+			if (copyPdfPage.GetPdfObject().Get(PdfName.Rotate) == null)
+			{
+				//original pdfObject don't have Rotate, otherwise copyPdfPage will contain it
+				var rotate = (PdfNumber)GetInheritedValue(PdfName.Rotate, PdfObject.NUMBER);
+				//rotate is optional, we shall not set default value.
+				if (rotate != null)
+				{
+					copyPdfPage.Put(PdfName.Rotate, rotate.CopyTo(pdfDocument));
+				}
+			}
+		}
+
+		private void RebuildFormFieldParent(PdfDictionary field, PdfDictionary newField, PdfDocument toDocument)
+		{
+			if (newField.ContainsKey(PdfName.Parent))
+			{
+				return;
+			}
+			var oldParent = field.GetAsDictionary(PdfName.Parent);
+			if (oldParent != null)
+			{
+				var newParent = oldParent.CopyTo(toDocument, JavaUtil.ArraysAsList(PdfName.P, PdfName.Kids, PdfName
+					.Parent), false);
+				if (newParent.IsFlushed())
+				{
+					newParent = oldParent.CopyTo(toDocument, JavaUtil.ArraysAsList(PdfName.P, PdfName.Kids, PdfName.Parent), true
+						);
+				}
+				RebuildFormFieldParent(oldParent, newParent, toDocument);
+				var kids = newParent.GetAsArray(PdfName.Kids);
+				if (kids == null)
+				{
+					newParent.Put(PdfName.Kids, new PdfArray());
+				}
+				newField.Put(PdfName.Parent, newParent);
+			}
+		}
+	}
+}

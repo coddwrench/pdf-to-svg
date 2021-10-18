@@ -1,0 +1,892 @@
+/*
+
+This file is part of the iText (R) project.
+Copyright (c) 1998-2021 iText Group NV
+Authors: Bruno Lowagie, Paulo Soares, et al.
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License version 3
+as published by the Free Software Foundation with the addition of the
+following permission added to Section 15 as permitted in Section 7(a):
+FOR ANY PART OF THE COVERED WORK IN WHICH THE COPYRIGHT IS OWNED BY
+ITEXT GROUP. ITEXT GROUP DISCLAIMS THE WARRANTY OF NON INFRINGEMENT
+OF THIRD PARTY RIGHTS
+
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+or FITNESS FOR A PARTICULAR PURPOSE.
+See the GNU Affero General Public License for more details.
+You should have received a copy of the GNU Affero General Public License
+along with this program; if not, see http://www.gnu.org/licenses or write to
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA, 02110-1301 USA, or download the license from the following URL:
+http://itextpdf.com/terms-of-use/
+
+The interactive user interfaces in modified source and object code versions
+of this program must display Appropriate Legal Notices, as required under
+Section 5 of the GNU Affero General Public License.
+
+In accordance with Section 7(b) of the GNU Affero General Public License,
+a covered work must retain the producer line in every PDF that is created
+or manipulated using iText.
+
+You can be released from the requirements of the license by purchasing
+a commercial license. Buying such a license is mandatory as soon as you
+develop commercial activities involving the iText software without
+disclosing the source code of your own applications.
+These activities include: offering paid services to customers as an ASP,
+serving PDFs on the fly in a web application, shipping iText with a closed
+source product.
+
+For more information, please contact iText Software Corp. at this
+address: sales@itextpdf.com
+*/
+
+using System;
+using System.Collections.Generic;
+using IText.IO.Util;
+using IText.Kernel.Font;
+using IText.Kernel.Pdf.Colorspace;
+using IText.Kernel.Pdf.Extgstate;
+using IText.Kernel.Pdf.Xobject;
+
+namespace IText.Kernel.Pdf
+{
+	/// <summary>
+	/// Wrapper class that represent resource dictionary - that define named resources
+	/// used by content streams operators.
+	/// </summary>
+	/// <remarks>
+	/// Wrapper class that represent resource dictionary - that define named resources
+	/// used by content streams operators. (ISO 32000-1, 7.8.3 Resource Dictionaries)
+	/// </remarks>
+	public class PdfResources : PdfObjectWrapper<PdfDictionary>
+	{
+		private const string F = "F";
+
+		private const string Im = "Im";
+
+		private const string Fm = "Fm";
+
+		private const string Gs = "Gs";
+
+		private const string Pr = "Pr";
+
+		private const string Cs = "Cs";
+
+		private const string P = "P";
+
+		private const string Sh = "Sh";
+
+		private IDictionary<PdfObject, PdfName> resourceToName = new Dictionary<PdfObject, PdfName>();
+
+		private ResourceNameGenerator fontNamesGen = new ResourceNameGenerator(PdfName.Font
+			, F);
+
+		private ResourceNameGenerator imageNamesGen = new ResourceNameGenerator(PdfName.
+			XObject, Im);
+
+		private ResourceNameGenerator formNamesGen = new ResourceNameGenerator(PdfName.XObject
+			, Fm);
+
+		private ResourceNameGenerator egsNamesGen = new ResourceNameGenerator(PdfName.ExtGState
+			, Gs);
+
+		private ResourceNameGenerator propNamesGen = new ResourceNameGenerator(PdfName.Properties
+			, Pr);
+
+		private ResourceNameGenerator csNamesGen = new ResourceNameGenerator(PdfName.ColorSpace
+			, Cs);
+
+		private ResourceNameGenerator patternNamesGen = new ResourceNameGenerator(PdfName
+			.Pattern, P);
+
+		private ResourceNameGenerator shadingNamesGen = new ResourceNameGenerator(PdfName
+			.Shading, Sh);
+
+		private bool readOnly;
+
+		private bool isModified;
+
+		/// <summary>Creates new instance from given dictionary.</summary>
+		/// <param name="pdfObject">
+		/// the
+		/// <see cref="PdfDictionary"/>
+		/// object from which the resource object will be created.
+		/// </param>
+		public PdfResources(PdfDictionary pdfObject)
+			: base(pdfObject)
+		{
+			BuildResources(pdfObject);
+		}
+
+		/// <summary>Creates new instance from empty dictionary.</summary>
+		public PdfResources()
+			: this(new PdfDictionary())
+		{
+		}
+
+		/// <summary>Adds font to resources and registers PdfFont in the document for further flushing.</summary>
+		/// <param name="pdfDocument">
+		/// a
+		/// <see cref="PdfDocument"/>
+		/// instance to which the font is added for further flushing
+		/// </param>
+		/// <param name="font">
+		/// a
+		/// <see cref="PdfFont"/>
+		/// instance to be added
+		/// </param>
+		/// <returns>added font resource name.</returns>
+		public virtual PdfName AddFont(PdfDocument pdfDocument, PdfFont font)
+		{
+			pdfDocument.AddFont(font);
+			return AddResource(font, fontNamesGen);
+		}
+
+		/// <summary>
+		/// Adds
+		/// <see cref="PdfImageXObject"/>
+		/// object to the resources.
+		/// </summary>
+		/// <param name="image">
+		/// the
+		/// <see cref="PdfImageXObject"/>
+		/// to add.
+		/// </param>
+		/// <returns>added image resource name.</returns>
+		public virtual PdfName AddImage(PdfImageXObject image)
+		{
+			return AddResource(image, imageNamesGen);
+		}
+
+		/// <summary>
+		/// Adds
+		/// <see cref="PdfStream"/>
+		/// to the resources as image.
+		/// </summary>
+		/// <param name="image">
+		/// the
+		/// <see cref="PdfStream"/>
+		/// to add.
+		/// </param>
+		/// <returns>added image resources name.</returns>
+		public virtual PdfName AddImage(PdfStream image)
+		{
+			return AddResource(image, imageNamesGen);
+		}
+
+		public virtual PdfImageXObject GetImage(PdfName name)
+		{
+			var image = GetResource(PdfName.XObject).GetAsStream(name);
+			return image != null && PdfName.Image.Equals(image.GetAsName(PdfName.Subtype)) ? new PdfImageXObject(image
+				) : null;
+		}
+
+		/// <summary>
+		/// Adds
+		/// <see cref="PdfFormXObject"/>
+		/// object to the resources.
+		/// </summary>
+		/// <param name="form">
+		/// the
+		/// <see cref="PdfFormXObject"/>
+		/// to add.
+		/// </param>
+		/// <returns>added form resource name.</returns>
+		public virtual PdfName AddForm(PdfFormXObject form)
+		{
+			return AddResource(form, formNamesGen);
+		}
+
+		/// <summary>
+		/// Adds
+		/// <see cref="PdfStream"/>
+		/// to the resources as form.
+		/// </summary>
+		/// <param name="form">
+		/// the
+		/// <see cref="PdfStream"/>
+		/// to add.
+		/// </param>
+		/// <returns>added form resources name.</returns>
+		public virtual PdfName AddForm(PdfStream form)
+		{
+			return AddResource(form, formNamesGen);
+		}
+
+		/// <summary>
+		/// Adds the given Form XObject to the current instance of
+		/// <see cref="PdfResources"/>.
+		/// </summary>
+		/// <param name="form">Form XObject.</param>
+		/// <param name="name">Preferred name for the given Form XObject.</param>
+		/// <returns>
+		/// the
+		/// <see cref="PdfName"/>
+		/// of the newly added resource
+		/// </returns>
+		public virtual PdfName AddForm(PdfFormXObject form, PdfName name)
+		{
+			if (GetResourceNames(PdfName.XObject).Contains(name))
+			{
+				name = AddResource(form, formNamesGen);
+			}
+			else
+			{
+				AddResource(form.GetPdfObject(), PdfName.XObject, name);
+			}
+			return name;
+		}
+
+		public virtual PdfFormXObject GetForm(PdfName name)
+		{
+			var form = GetResource(PdfName.XObject).GetAsStream(name);
+			return form != null && PdfName.Form.Equals(form.GetAsName(PdfName.Subtype)) ? new PdfFormXObject(form) : null;
+		}
+
+		/// <summary>
+		/// Adds
+		/// <see cref="PdfExtGState"/>
+		/// object to the resources.
+		/// </summary>
+		/// <param name="extGState">
+		/// the
+		/// <see cref="PdfExtGState"/>
+		/// to add.
+		/// </param>
+		/// <returns>added graphics state parameter dictionary resource name.</returns>
+		public virtual PdfName AddExtGState(PdfExtGState extGState)
+		{
+			return AddResource(extGState, egsNamesGen);
+		}
+
+		/// <summary>
+		/// Adds
+		/// <see cref="PdfDictionary"/>
+		/// to the resources as graphics state parameter dictionary.
+		/// </summary>
+		/// <param name="extGState">
+		/// the
+		/// <see cref="PdfDictionary"/>
+		/// to add.
+		/// </param>
+		/// <returns>added graphics state parameter dictionary resources name.</returns>
+		public virtual PdfName AddExtGState(PdfDictionary extGState)
+		{
+			return AddResource(extGState, egsNamesGen);
+		}
+
+		public virtual PdfExtGState GetPdfExtGState(PdfName name)
+		{
+			var dic = GetResource(PdfName.ExtGState).GetAsDictionary(name);
+			return dic != null ? new PdfExtGState(dic) : null;
+		}
+
+		/// <summary>
+		/// Adds
+		/// <see cref="PdfDictionary"/>
+		/// to the resources as properties list.
+		/// </summary>
+		/// <param name="properties">
+		/// the
+		/// <see cref="PdfDictionary"/>
+		/// to add.
+		/// </param>
+		/// <returns>added properties list resources name.</returns>
+		public virtual PdfName AddProperties(PdfDictionary properties)
+		{
+			return AddResource(properties, propNamesGen);
+		}
+
+		public virtual PdfObject GetProperties(PdfName name)
+		{
+			return GetResourceObject(PdfName.Properties, name);
+		}
+
+		/// <summary>
+		/// Adds
+		/// <see cref="PdfColorSpace"/>
+		/// object to the resources.
+		/// </summary>
+		/// <param name="cs">
+		/// the
+		/// <see cref="PdfColorSpace"/>
+		/// to add.
+		/// </param>
+		/// <returns>added color space resource name.</returns>
+		public virtual PdfName AddColorSpace(PdfColorSpace cs)
+		{
+			return AddResource(cs, csNamesGen);
+		}
+
+		/// <summary>
+		/// Adds
+		/// <see cref="PdfObject"/>
+		/// to the resources as color space.
+		/// </summary>
+		/// <param name="colorSpace">
+		/// the
+		/// <see cref="PdfObject"/>
+		/// to add.
+		/// </param>
+		/// <returns>added color space resources name.</returns>
+		public virtual PdfName AddColorSpace(PdfObject colorSpace)
+		{
+			return AddResource(colorSpace, csNamesGen);
+		}
+
+		public virtual PdfColorSpace GetColorSpace(PdfName name)
+		{
+			var colorSpace = GetResourceObject(PdfName.ColorSpace, name);
+			return colorSpace != null ? PdfColorSpace.MakeColorSpace(colorSpace) : null;
+		}
+
+		/// <summary>
+		/// Adds
+		/// <see cref="PdfPattern"/>
+		/// object to the resources.
+		/// </summary>
+		/// <param name="pattern">
+		/// the
+		/// <see cref="PdfPattern"/>
+		/// to add.
+		/// </param>
+		/// <returns>added pattern resource name.</returns>
+		public virtual PdfName AddPattern(PdfPattern pattern)
+		{
+			return AddResource(pattern, patternNamesGen);
+		}
+
+		/// <summary>
+		/// Adds
+		/// <see cref="PdfDictionary"/>
+		/// to the resources as pattern.
+		/// </summary>
+		/// <param name="pattern">
+		/// the
+		/// <see cref="PdfDictionary"/>
+		/// to add.
+		/// </param>
+		/// <returns>added pattern resources name.</returns>
+		public virtual PdfName AddPattern(PdfDictionary pattern)
+		{
+			return AddResource(pattern, patternNamesGen);
+		}
+
+		public virtual PdfPattern GetPattern(PdfName name)
+		{
+			var pattern = GetResourceObject(PdfName.Pattern, name);
+			return pattern is PdfDictionary ? PdfPattern.GetPatternInstance((PdfDictionary)pattern) : null;
+		}
+
+		/// <summary>
+		/// Adds
+		/// <see cref="PdfShading"/>
+		/// object to the resources.
+		/// </summary>
+		/// <param name="shading">
+		/// the
+		/// <see cref="PdfShading"/>
+		/// to add.
+		/// </param>
+		/// <returns>added shading resource name.</returns>
+		public virtual PdfName AddShading(PdfShading shading)
+		{
+			return AddResource(shading, shadingNamesGen);
+		}
+
+		/// <summary>
+		/// Adds
+		/// <see cref="PdfDictionary"/>
+		/// to the resources as shading dictionary.
+		/// </summary>
+		/// <param name="shading">
+		/// the
+		/// <see cref="PdfDictionary"/>
+		/// to add.
+		/// </param>
+		/// <returns>added shading dictionary resources name.</returns>
+		public virtual PdfName AddShading(PdfDictionary shading)
+		{
+			return AddResource(shading, shadingNamesGen);
+		}
+
+		public virtual PdfShading GetShading(PdfName name)
+		{
+			var shading = GetResourceObject(PdfName.Shading, name);
+			return shading is PdfDictionary ? PdfShading.MakeShading((PdfDictionary)shading) : null;
+		}
+
+		protected internal virtual bool IsReadOnly()
+		{
+			return readOnly;
+		}
+
+		protected internal virtual void SetReadOnly(bool readOnly)
+		{
+			this.readOnly = readOnly;
+		}
+
+		protected internal virtual bool IsModified()
+		{
+			return isModified;
+		}
+
+		/// <summary>
+		/// Sets the 'modified' flag to this
+		/// <see cref="PdfResources"/>
+		/// indirect object.
+		/// </summary>
+		/// <remarks>
+		/// Sets the 'modified' flag to this
+		/// <see cref="PdfResources"/>
+		/// indirect object.
+		/// The flag denotes that the object was modified since the document opening.
+		/// </remarks>
+		/// <param name="isModified">
+		/// 
+		/// <see langword="true"/>
+		/// if this
+		/// <see cref="PdfResources"/>
+		/// indirect object has been modified,
+		/// otherwise
+		/// <see langword="false"/>.
+		/// </param>
+		/// <seealso cref="PdfObject.SetModified()"/>
+		[Obsolete(@"Please use SetModified() .")]
+		protected internal virtual void SetModified(bool isModified)
+		{
+			this.isModified = isModified;
+		}
+
+		/// <summary><inheritDoc/></summary>
+		public override PdfObjectWrapper<PdfDictionary> SetModified()
+		{
+			isModified = true;
+			return base.SetModified();
+		}
+
+		/// <summary>Sets the value of default Gray Color Space (see ISO-320001 Paragraph 8.6.5.6).</summary>
+		/// <param name="defaultCs">the color space to set.</param>
+		public virtual void SetDefaultGray(PdfColorSpace defaultCs)
+		{
+			AddResource(defaultCs.GetPdfObject(), PdfName.ColorSpace, PdfName.DefaultGray);
+		}
+
+		/// <summary>Sets the value of default RGB Color Space (see ISO-320001 Paragraph 8.6.5.6).</summary>
+		/// <param name="defaultCs">the color space to set.</param>
+		public virtual void SetDefaultRgb(PdfColorSpace defaultCs)
+		{
+			AddResource(defaultCs.GetPdfObject(), PdfName.ColorSpace, PdfName.DefaultRGB);
+		}
+
+		/// <summary>Sets the value of default CMYK Color Space (see ISO-320001 Paragraph 8.6.5.6).</summary>
+		/// <param name="defaultCs">the color space to set.</param>
+		public virtual void SetDefaultCmyk(PdfColorSpace defaultCs)
+		{
+			AddResource(defaultCs.GetPdfObject(), PdfName.ColorSpace, PdfName.DefaultCMYK);
+		}
+
+		/// <summary>
+		/// Gets the mapped resource name of the
+		/// <see cref="PdfObject"/>
+		/// under the given wrapper.
+		/// </summary>
+		/// <remarks>
+		/// Gets the mapped resource name of the
+		/// <see cref="PdfObject"/>
+		/// under the given wrapper.
+		/// <br />
+		/// <br />
+		/// Note: if the name for the object won't be found, then the name of object's Indirect Reference will be searched.
+		/// </remarks>
+		/// <param name="resource">
+		/// the wrapper of the
+		/// <see cref="PdfObject"/>
+		/// , for which the name will be searched.
+		/// </param>
+		/// <typeparam name="T">
+		/// the type of the underlined
+		/// <see cref="PdfObject"/>
+		/// in wrapper.
+		/// </typeparam>
+		/// <returns>
+		/// the mapped resource name or
+		/// <see langword="null"/>
+		/// if object isn't added to resources.
+		/// </returns>
+		public virtual PdfName GetResourceName<T>(PdfObjectWrapper<T> resource)
+			where T : PdfObject
+		{
+			return GetResourceName(resource.GetPdfObject());
+		}
+
+		/// <summary>
+		/// Gets the mapped resource name of the given
+		/// <see cref="PdfObject"/>.
+		/// </summary>
+		/// <remarks>
+		/// Gets the mapped resource name of the given
+		/// <see cref="PdfObject"/>.
+		/// <br />
+		/// <br />
+		/// Note: if the name for the object won't be found, then the name of object's Indirect Reference will be searched.
+		/// </remarks>
+		/// <param name="resource">the object, for which the name will be searched.</param>
+		/// <returns>
+		/// the mapped resource name or
+		/// <see langword="null"/>
+		/// if object isn't added to resources.
+		/// </returns>
+		public virtual PdfName GetResourceName(PdfObject resource)
+		{
+			var resName = resourceToName.Get(resource);
+			if (resName == null)
+			{
+				resName = resourceToName.Get(resource.GetIndirectReference());
+			}
+			return resName;
+		}
+
+		/// <summary>Gets the names of all the added resources.</summary>
+		/// <returns>the name of all the added resources.</returns>
+		public virtual ICollection<PdfName> GetResourceNames()
+		{
+			ICollection<PdfName> names = new SortedSet<PdfName>();
+			foreach (var resType in GetPdfObject().KeySet())
+			{
+				names.AddAll(GetResourceNames(resType));
+			}
+			return names;
+		}
+
+		/// <summary>Gets the array of predefined procedure set names (see ISO-320001 Paragraph 14.2).</summary>
+		/// <remarks>
+		/// Gets the array of predefined procedure set names (see ISO-320001 Paragraph 14.2).
+		/// Deprecated in PDF 2.0.
+		/// </remarks>
+		/// <returns>the array of predefined procedure set names.</returns>
+		public virtual PdfArray GetProcSet()
+		{
+			return GetPdfObject().GetAsArray(PdfName.ProcSet);
+		}
+
+		/// <summary>Sets the array of predefined procedure set names (see ISO-320001 Paragraph 14.2).</summary>
+		/// <remarks>
+		/// Sets the array of predefined procedure set names (see ISO-320001 Paragraph 14.2).
+		/// Deprecated in PDF 2.0.
+		/// </remarks>
+		/// <param name="array">the array of predefined procedure set names to be set.</param>
+		public virtual void SetProcSet(PdfArray array)
+		{
+			GetPdfObject().Put(PdfName.ProcSet, array);
+		}
+
+		/// <summary>Gets the names of all resources of specified type.</summary>
+		/// <param name="resType">
+		/// the resource type. Should be
+		/// <see cref="PdfName.ColorSpace"/>
+		/// ,
+		/// <see cref="PdfName.ExtGState"/>
+		/// ,
+		/// <see cref="PdfName.Pattern"/>
+		/// ,
+		/// <see cref="PdfName.Shading"/>
+		/// ,
+		/// <see cref="PdfName.XObject"/>
+		/// ,
+		/// <see cref="PdfName.Font"/>.
+		/// </param>
+		/// <returns>
+		/// set of resources name of corresponding type. May be empty.
+		/// Will be empty in case of incorrect resource type.
+		/// </returns>
+		public virtual ICollection<PdfName> GetResourceNames(PdfName resType)
+		{
+			var resourceCategory = GetPdfObject().GetAsDictionary(resType);
+			return resourceCategory == null ? JavaCollectionsUtil.EmptySet<PdfName>() : resourceCategory.KeySet();
+		}
+
+		/// <summary>
+		/// Get the
+		/// <see cref="PdfDictionary"/>
+		/// object that that contain resources of specified type.
+		/// </summary>
+		/// <param name="resType">
+		/// the resource type. Should be
+		/// <see cref="PdfName.ColorSpace"/>
+		/// ,
+		/// <see cref="PdfName.ExtGState"/>
+		/// ,
+		/// <see cref="PdfName.Pattern"/>
+		/// ,
+		/// <see cref="PdfName.Shading"/>
+		/// ,
+		/// <see cref="PdfName.XObject"/>
+		/// ,
+		/// <see cref="PdfName.Font"/>.
+		/// </param>
+		/// <returns>
+		/// the
+		/// <see cref="PdfDictionary"/>
+		/// object containing all resources of specified type,
+		/// or
+		/// <see langword="null"/>
+		/// in case of incorrect resource type.
+		/// </returns>
+		public virtual PdfDictionary GetResource(PdfName resType)
+		{
+			return GetPdfObject().GetAsDictionary(resType);
+		}
+
+		/// <summary>
+		/// Get the
+		/// <see cref="PdfObject"/>
+		/// object with specified type and name.
+		/// </summary>
+		/// <param name="resType">
+		/// the resource type. Should be
+		/// <see cref="PdfName.ColorSpace"/>
+		/// ,
+		/// <see cref="PdfName.ExtGState"/>
+		/// ,
+		/// <see cref="PdfName.Pattern"/>
+		/// ,
+		/// <see cref="PdfName.Shading"/>
+		/// ,
+		/// <see cref="PdfName.XObject"/>
+		/// ,
+		/// <see cref="PdfName.Font"/>.
+		/// </param>
+		/// <param name="resName">the name of the resource object.</param>
+		/// <returns>
+		/// the
+		/// <see cref="PdfObject"/>
+		/// with specified name in the resources of specified type or
+		/// <see langword="null"/>
+		/// in case of incorrect type or missing resource with such name.
+		/// </returns>
+		public virtual PdfObject GetResourceObject(PdfName resType, PdfName resName)
+		{
+			var resource = GetResource(resType);
+			if (resource != null)
+			{
+				return resource.Get(resName);
+			}
+			return null;
+		}
+
+		protected internal override bool IsWrappedObjectMustBeIndirect()
+		{
+			return false;
+		}
+
+		internal virtual PdfName AddResource<T>(PdfObjectWrapper<T> resource, ResourceNameGenerator nameGen
+			)
+			where T : PdfObject
+		{
+			return AddResource(resource.GetPdfObject(), nameGen);
+		}
+
+		protected internal virtual void AddResource(PdfObject resource, PdfName resType, PdfName resName)
+		{
+			if (resType.Equals(PdfName.XObject))
+			{
+				CheckAndResolveCircularReferences(resource);
+			}
+			if (readOnly)
+			{
+				SetPdfObject(GetPdfObject().Clone(JavaCollectionsUtil.EmptyList<PdfName>()));
+				BuildResources(GetPdfObject());
+				isModified = true;
+				readOnly = false;
+			}
+			if (GetPdfObject().ContainsKey(resType) && GetPdfObject().GetAsDictionary(resType).ContainsKey(resName))
+			{
+				return;
+			}
+			resourceToName.Put(resource, resName);
+			var resourceCategory = GetPdfObject().GetAsDictionary(resType);
+			if (resourceCategory == null)
+			{
+				GetPdfObject().Put(resType, resourceCategory = new PdfDictionary());
+			}
+			else
+			{
+				resourceCategory.SetModified();
+			}
+			resourceCategory.Put(resName, resource);
+			SetModified();
+		}
+
+		internal virtual PdfName AddResource(PdfObject resource, ResourceNameGenerator nameGen)
+		{
+			var resName = GetResourceName(resource);
+			if (resName == null)
+			{
+				resName = nameGen.Generate(this);
+				AddResource(resource, nameGen.GetResourceType(), resName);
+			}
+			return resName;
+		}
+
+		protected internal virtual void BuildResources(PdfDictionary dictionary)
+		{
+			foreach (var resourceType in dictionary.KeySet())
+			{
+				if (GetPdfObject().Get(resourceType) == null)
+				{
+					GetPdfObject().Put(resourceType, new PdfDictionary());
+				}
+				var resources = dictionary.GetAsDictionary(resourceType);
+				if (resources == null)
+				{
+					continue;
+				}
+				foreach (var resourceName in resources.KeySet())
+				{
+					var resource = resources.Get(resourceName, false);
+					resourceToName.Put(resource, resourceName);
+				}
+			}
+		}
+
+		private void CheckAndResolveCircularReferences(PdfObject pdfObject)
+		{
+			// Consider the situation when an XObject references the resources of the first page.
+			// We add this XObject to the first page, there is no need to resolve any circular references
+			// and then we flush this object and try to add it to the second page.
+			// Now there are circular references and we cannot resolve them because the object is flushed
+			// and we cannot get resources.
+			// On the other hand, this situation may occur any time when object is already flushed and we
+			// try to add it to resources and it seems difficult to overcome this without keeping /Resources key value.
+			if (pdfObject is PdfDictionary && !pdfObject.IsFlushed())
+			{
+				var pdfXObject = (PdfDictionary)pdfObject;
+				var pdfXObjectResources = pdfXObject.Get(PdfName.Resources);
+				if (pdfXObjectResources != null && pdfXObjectResources.GetIndirectReference() != null)
+				{
+					if (pdfXObjectResources.GetIndirectReference().Equals(GetPdfObject().GetIndirectReference()))
+					{
+						var cloneResources = GetPdfObject().Clone();
+						cloneResources.MakeIndirect(GetPdfObject().GetIndirectReference().GetDocument());
+						pdfXObject.Put(PdfName.Resources, cloneResources.GetIndirectReference());
+					}
+				}
+			}
+		}
+
+		/// <summary>Represents a resource name generator.</summary>
+		/// <remarks>
+		/// Represents a resource name generator. The generator takes into account
+		/// the names of already existing resources thus providing us a unique name.
+		/// The name consists of the following parts: prefix (literal) and number.
+		/// </remarks>
+		internal class ResourceNameGenerator
+		{
+			private PdfName resourceType;
+
+			private int counter;
+
+			private string prefix;
+
+			/// <summary>
+			/// Constructs an instance of
+			/// <see cref="ResourceNameGenerator"/>
+			/// class.
+			/// </summary>
+			/// <param name="resourceType">
+			/// Type of resource. Should be
+			/// <see cref="PdfName.ColorSpace"/>
+			/// ,
+			/// <see cref="PdfName.ExtGState"/>
+			/// ,
+			/// <see cref="PdfName.Pattern"/>
+			/// ,
+			/// <see cref="PdfName.Shading"/>
+			/// ,
+			/// <see cref="PdfName.XObject"/>
+			/// ,
+			/// <see cref="PdfName.Font"/>.
+			/// </param>
+			/// <param name="prefix">Prefix used for generating names.</param>
+			/// <param name="seed">
+			/// Seed for the value which is appended to the number each time
+			/// new name is generated.
+			/// </param>
+			public ResourceNameGenerator(PdfName resourceType, string prefix, int seed)
+			{
+				this.prefix = prefix;
+				this.resourceType = resourceType;
+				counter = seed;
+			}
+
+			/// <summary>
+			/// Constructs an instance of
+			/// <see cref="ResourceNameGenerator"/>
+			/// class.
+			/// </summary>
+			/// <param name="resourceType">
+			/// Type of resource. Should be
+			/// <see cref="PdfName.ColorSpace"/>
+			/// ,
+			/// <see cref="PdfName.ExtGState"/>
+			/// ,
+			/// <see cref="PdfName.Pattern"/>
+			/// ,
+			/// <see cref="PdfName.Shading"/>
+			/// ,
+			/// <see cref="PdfName.XObject"/>
+			/// ,
+			/// <see cref="PdfName.Font"/>.
+			/// </param>
+			/// <param name="prefix">Prefix used for generating names.</param>
+			public ResourceNameGenerator(PdfName resourceType, string prefix)
+				: this(resourceType, prefix, 1)
+			{
+			}
+
+			/// <summary>Gets the resource type of generator.</summary>
+			/// <returns>
+			/// Type of resource. May be
+			/// <see cref="PdfName.ColorSpace"/>
+			/// ,
+			/// <see cref="PdfName.ExtGState"/>
+			/// ,
+			/// <see cref="PdfName.Pattern"/>
+			/// ,
+			/// <see cref="PdfName.Shading"/>
+			/// ,
+			/// <see cref="PdfName.XObject"/>
+			/// ,
+			/// <see cref="PdfName.Font"/>.
+			/// </returns>
+			public virtual PdfName GetResourceType()
+			{
+				return resourceType;
+			}
+
+			/// <summary>Generates new (unique) resource name.</summary>
+			/// <param name="resources">
+			/// the
+			/// <see cref="PdfResources"/>
+			/// object for which name will be generated.
+			/// </param>
+			/// <returns>new (unique) resource name.</returns>
+			public virtual PdfName Generate(PdfResources resources)
+			{
+				var newName = new PdfName(prefix + counter++);
+				var r = resources.GetPdfObject();
+				if (r.ContainsKey(resourceType))
+				{
+					while (r.GetAsDictionary(resourceType).ContainsKey(newName))
+					{
+						newName = new PdfName(prefix + counter++);
+					}
+				}
+				return newName;
+			}
+		}
+	}
+}

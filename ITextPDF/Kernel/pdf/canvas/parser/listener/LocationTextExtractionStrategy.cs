@@ -1,0 +1,400 @@
+/*
+
+This file is part of the iText (R) project.
+Copyright (c) 1998-2021 iText Group NV
+Authors: Bruno Lowagie, Paulo Soares, et al.
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License version 3
+as published by the Free Software Foundation with the addition of the
+following permission added to Section 15 as permitted in Section 7(a):
+FOR ANY PART OF THE COVERED WORK IN WHICH THE COPYRIGHT IS OWNED BY
+ITEXT GROUP. ITEXT GROUP DISCLAIMS THE WARRANTY OF NON INFRINGEMENT
+OF THIRD PARTY RIGHTS
+
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+or FITNESS FOR A PARTICULAR PURPOSE.
+See the GNU Affero General Public License for more details.
+You should have received a copy of the GNU Affero General Public License
+along with this program; if not, see http://www.gnu.org/licenses or write to
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA, 02110-1301 USA, or download the license from the following URL:
+http://itextpdf.com/terms-of-use/
+
+The interactive user interfaces in modified source and object code versions
+of this program must display Appropriate Legal Notices, as required under
+Section 5 of the GNU Affero General Public License.
+
+In accordance with Section 7(b) of the GNU Affero General Public License,
+a covered work must retain the producer line in every PDF that is created
+or manipulated using iText.
+
+You can be released from the requirements of the license by purchasing
+a commercial license. Buying such a license is mandatory as soon as you
+develop commercial activities involving the iText software without
+disclosing the source code of your own applications.
+These activities include: offering paid services to customers as an ASP,
+serving PDFs on the fly in a web application, shipping iText with a closed
+source product.
+
+For more information, please contact iText Software Corp. at this
+address: sales@itextpdf.com
+*/
+
+using System;
+using System.Collections.Generic;
+using System.Text;
+using IText.IO.Util;
+using IText.Kernel.Geom;
+using IText.Kernel.Pdf.Canvas.Parser.Data;
+
+namespace IText.Kernel.Pdf.Canvas.Parser.Listener
+{
+	public class LocationTextExtractionStrategy : ITextExtractionStrategy
+	{
+		/// <summary>set to true for debugging</summary>
+		private static bool DUMP_STATE = false;
+
+		/// <summary>a summary of all found text</summary>
+		private readonly IList<TextChunk> locationalResult = new List<TextChunk>();
+
+		private readonly ITextChunkLocationStrategy tclStrat;
+
+		private bool useActualText;
+
+		private bool rightToLeftRunDirection;
+
+		private TextRenderInfo lastTextRenderInfo;
+
+		/// <summary>Creates a new text extraction renderer.</summary>
+		public LocationTextExtractionStrategy()
+			: this(new _ITextChunkLocationStrategy_85())
+		{
+		}
+
+		private sealed class _ITextChunkLocationStrategy_85 : ITextChunkLocationStrategy
+		{
+			public ITextChunkLocation CreateLocation(TextRenderInfo renderInfo, LineSegment baseline)
+			{
+				return new TextChunkLocationDefaultImp(baseline.GetStartPoint(), baseline.GetEndPoint(), renderInfo.GetSingleSpaceWidth
+					());
+			}
+		}
+
+		/// <summary>
+		/// Creates a new text extraction renderer, with a custom strategy for
+		/// creating new TextChunkLocation objects based on the input of the
+		/// TextRenderInfo.
+		/// </summary>
+		/// <param name="strat">the custom strategy</param>
+		public LocationTextExtractionStrategy(ITextChunkLocationStrategy strat)
+		{
+			tclStrat = strat;
+		}
+
+		/// <summary>
+		/// Changes the behavior of text extraction so that if the parameter is set to
+		/// <see langword="true"/>
+		/// ,
+		/// /ActualText marked content property will be used instead of raw decoded bytes.
+		/// </summary>
+		/// <remarks>
+		/// Changes the behavior of text extraction so that if the parameter is set to
+		/// <see langword="true"/>
+		/// ,
+		/// /ActualText marked content property will be used instead of raw decoded bytes.
+		/// Beware: the logic is not stable yet.
+		/// </remarks>
+		/// <param name="useActualText">true to use /ActualText, false otherwise</param>
+		/// <returns>this object</returns>
+		public virtual LocationTextExtractionStrategy SetUseActualText(bool
+			 useActualText)
+		{
+			this.useActualText = useActualText;
+			return this;
+		}
+
+		/// <summary>Sets if text flows from left to right or from right to left.</summary>
+		/// <remarks>
+		/// Sets if text flows from left to right or from right to left.
+		/// Call this method with <c>true</c> argument for extracting Arabic, Hebrew or other
+		/// text with right-to-left writing direction.
+		/// </remarks>
+		/// <param name="rightToLeftRunDirection">value specifying whether the direction should be right to left</param>
+		/// <returns>this object</returns>
+		public virtual LocationTextExtractionStrategy SetRightToLeftRunDirection
+			(bool rightToLeftRunDirection)
+		{
+			this.rightToLeftRunDirection = rightToLeftRunDirection;
+			return this;
+		}
+
+		/// <summary>
+		/// Gets the value of the property which determines if /ActualText will be used when extracting
+		/// the text
+		/// </summary>
+		/// <returns>true if /ActualText value is used, false otherwise</returns>
+		public virtual bool IsUseActualText()
+		{
+			return useActualText;
+		}
+
+		public virtual void EventOccurred(IEventData data, EventType type)
+		{
+			if (type.Equals(EventType.RENDER_TEXT))
+			{
+				var renderInfo = (TextRenderInfo)data;
+				var segment = renderInfo.GetBaseline();
+				if (renderInfo.GetRise() != 0)
+				{
+					// remove the rise from the baseline - we do this because the text from a super/subscript render operations should probably be considered as part of the baseline of the text the super/sub is relative to
+					var riseOffsetTransform = new Matrix(0, -renderInfo.GetRise());
+					segment = segment.TransformBy(riseOffsetTransform);
+				}
+				if (useActualText)
+				{
+					var lastTagWithActualText = lastTextRenderInfo != null ? FindLastTagWithActualText(lastTextRenderInfo
+						.GetCanvasTagHierarchy()) : null;
+					if (lastTagWithActualText != null && lastTagWithActualText == FindLastTagWithActualText(renderInfo.GetCanvasTagHierarchy
+						()))
+					{
+						// Merge two text pieces, assume they will be in the same line
+						var lastTextChunk = locationalResult[locationalResult.Count - 1];
+						var mergedStart = new Vector(Math.Min(lastTextChunk.GetLocation().GetStartLocation().Get(0), segment.GetStartPoint
+							().Get(0)), Math.Min(lastTextChunk.GetLocation().GetStartLocation().Get(1), segment.GetStartPoint().Get
+							(1)), Math.Min(lastTextChunk.GetLocation().GetStartLocation().Get(2), segment.GetStartPoint().Get(2)));
+						var mergedEnd = new Vector(Math.Max(lastTextChunk.GetLocation().GetEndLocation().Get(0), segment.GetEndPoint
+							().Get(0)), Math.Max(lastTextChunk.GetLocation().GetEndLocation().Get(1), segment.GetEndPoint().Get(1)
+							), Math.Max(lastTextChunk.GetLocation().GetEndLocation().Get(2), segment.GetEndPoint().Get(2)));
+						var merged = new TextChunk(lastTextChunk.GetText(), tclStrat.CreateLocation(renderInfo, new LineSegment
+							(mergedStart, mergedEnd)));
+						locationalResult[locationalResult.Count - 1] = merged;
+					}
+					else
+					{
+						var actualText = renderInfo.GetActualText();
+						var tc = new TextChunk(actualText != null ? actualText : renderInfo.GetText(), tclStrat.CreateLocation
+							(renderInfo, segment));
+						locationalResult.Add(tc);
+					}
+				}
+				else
+				{
+					var tc = new TextChunk(renderInfo.GetText(), tclStrat.CreateLocation(renderInfo, segment));
+					locationalResult.Add(tc);
+				}
+				lastTextRenderInfo = renderInfo;
+			}
+		}
+
+		public virtual ICollection<EventType> GetSupportedEvents()
+		{
+			return null;
+		}
+
+		public virtual string GetResultantText()
+		{
+			if (DUMP_STATE)
+			{
+				DumpState();
+			}
+			IList<TextChunk> textChunks = new List<TextChunk>(locationalResult);
+			SortWithMarks(textChunks);
+			var sb = new StringBuilder();
+			TextChunk lastChunk = null;
+			foreach (var chunk in textChunks)
+			{
+				if (lastChunk == null)
+				{
+					sb.Append(chunk.text);
+				}
+				else
+				{
+					if (chunk.SameLine(lastChunk))
+					{
+						// we only insert a blank space if the trailing character of the previous string wasn't a space, and the leading character of the current string isn't a space
+						if (IsChunkAtWordBoundary(chunk, lastChunk) && !StartsWithSpace(chunk.text) && !EndsWithSpace(lastChunk.text
+							))
+						{
+							sb.Append(' ');
+						}
+						sb.Append(chunk.text);
+					}
+					else
+					{
+						sb.Append('\n');
+						sb.Append(chunk.text);
+					}
+				}
+				lastChunk = chunk;
+			}
+			return sb.ToString();
+		}
+
+		/// <summary>Determines if a space character should be inserted between a previous chunk and the current chunk.
+		///     </summary>
+		/// <remarks>
+		/// Determines if a space character should be inserted between a previous chunk and the current chunk.
+		/// This method is exposed as a callback so subclasses can fine time the algorithm for determining whether a space should be inserted or not.
+		/// By default, this method will insert a space if the there is a gap of more than half the font space character width between the end of the
+		/// previous chunk and the beginning of the current chunk.  It will also indicate that a space is needed if the starting point of the new chunk
+		/// appears *before* the end of the previous chunk (i.e. overlapping text).
+		/// </remarks>
+		/// <param name="chunk">the new chunk being evaluated</param>
+		/// <param name="previousChunk">the chunk that appeared immediately before the current chunk</param>
+		/// <returns>true if the two chunks represent different words (i.e. should have a space between them).  False otherwise.
+		///     </returns>
+		protected internal virtual bool IsChunkAtWordBoundary(TextChunk chunk, TextChunk previousChunk)
+		{
+			return chunk.GetLocation().IsAtWordBoundary(previousChunk.GetLocation());
+		}
+
+		/// <summary>Checks if the string starts with a space character, false if the string is empty or starts with a non-space character.
+		///     </summary>
+		/// <param name="str">the string to be checked</param>
+		/// <returns>true if the string starts with a space character, false if the string is empty or starts with a non-space character
+		///     </returns>
+		private bool StartsWithSpace(string str)
+		{
+			return str.Length != 0 && str[0] == ' ';
+		}
+
+		/// <summary>Checks if the string ends with a space character, false if the string is empty or ends with a non-space character
+		///     </summary>
+		/// <param name="str">the string to be checked</param>
+		/// <returns>true if the string ends with a space character, false if the string is empty or ends with a non-space character
+		///     </returns>
+		private bool EndsWithSpace(string str)
+		{
+			return str.Length != 0 && str[str.Length - 1] == ' ';
+		}
+
+		/// <summary>Used for debugging only</summary>
+		private void DumpState()
+		{
+			foreach (var location in locationalResult)
+			{
+				location.PrintDiagnostics();
+				Console.Out.WriteLine();
+			}
+		}
+
+		private CanvasTag FindLastTagWithActualText(IList<CanvasTag> canvasTagHierarchy)
+		{
+			CanvasTag lastActualText = null;
+			foreach (var tag in canvasTagHierarchy)
+			{
+				if (tag.GetActualText() != null)
+				{
+					lastActualText = tag;
+					break;
+				}
+			}
+			return lastActualText;
+		}
+
+		private void SortWithMarks(IList<TextChunk> textChunks)
+		{
+			var marks = new Dictionary<TextChunk, TextChunkMarks>();
+			var toSort = new List<TextChunk>();
+			for (var markInd = 0; markInd < textChunks.Count; markInd++)
+			{
+				var location = textChunks[markInd].GetLocation();
+				if (location.GetStartLocation().Equals(location.GetEndLocation()))
+				{
+					var foundBaseToAttachTo = false;
+					for (var baseInd = 0; baseInd < textChunks.Count; baseInd++)
+					{
+						if (markInd != baseInd)
+						{
+							var baseLocation = textChunks[baseInd].GetLocation();
+							if (!baseLocation.GetStartLocation().Equals(baseLocation.GetEndLocation()) && TextChunkLocationDefaultImp.
+								ContainsMark(baseLocation, location))
+							{
+								var currentMarks = marks.Get(textChunks[baseInd]);
+								if (currentMarks == null)
+								{
+									currentMarks = new TextChunkMarks();
+									marks.Put(textChunks[baseInd], currentMarks);
+								}
+								if (markInd < baseInd)
+								{
+									currentMarks.preceding.Add(textChunks[markInd]);
+								}
+								else
+								{
+									currentMarks.succeeding.Add(textChunks[markInd]);
+								}
+								foundBaseToAttachTo = true;
+								break;
+							}
+						}
+					}
+					if (!foundBaseToAttachTo)
+					{
+						toSort.Add(textChunks[markInd]);
+					}
+				}
+				else
+				{
+					toSort.Add(textChunks[markInd]);
+				}
+			}
+			JavaCollectionsUtil.Sort(toSort, new TextChunkLocationBasedComparator(new DefaultTextChunkLocationComparator
+				(!rightToLeftRunDirection)));
+			textChunks.Clear();
+			foreach (var current in toSort)
+			{
+				var currentMarks = marks.Get(current);
+				if (currentMarks != null)
+				{
+					if (!rightToLeftRunDirection)
+					{
+						for (var j = 0; j < currentMarks.preceding.Count; j++)
+						{
+							textChunks.Add(currentMarks.preceding[j]);
+						}
+					}
+					else
+					{
+						for (var j = currentMarks.succeeding.Count - 1; j >= 0; j--)
+						{
+							textChunks.Add(currentMarks.succeeding[j]);
+						}
+					}
+				}
+				textChunks.Add(current);
+				if (currentMarks != null)
+				{
+					if (!rightToLeftRunDirection)
+					{
+						for (var j = 0; j < currentMarks.succeeding.Count; j++)
+						{
+							textChunks.Add(currentMarks.succeeding[j]);
+						}
+					}
+					else
+					{
+						for (var j = currentMarks.preceding.Count - 1; j >= 0; j--)
+						{
+							textChunks.Add(currentMarks.preceding[j]);
+						}
+					}
+				}
+			}
+		}
+
+		public interface ITextChunkLocationStrategy
+		{
+			ITextChunkLocation CreateLocation(TextRenderInfo renderInfo, LineSegment baseline);
+		}
+
+		private class TextChunkMarks
+		{
+			internal IList<TextChunk> preceding = new List<TextChunk>();
+
+			internal IList<TextChunk> succeeding = new List<TextChunk>();
+		}
+	}
+}

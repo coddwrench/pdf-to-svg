@@ -1,0 +1,478 @@
+/*
+
+This file is part of the iText (R) project.
+Copyright (c) 1998-2021 iText Group NV
+Authors: Bruno Lowagie, Paulo Soares, et al.
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License version 3
+as published by the Free Software Foundation with the addition of the
+following permission added to Section 15 as permitted in Section 7(a):
+FOR ANY PART OF THE COVERED WORK IN WHICH THE COPYRIGHT IS OWNED BY
+ITEXT GROUP. ITEXT GROUP DISCLAIMS THE WARRANTY OF NON INFRINGEMENT
+OF THIRD PARTY RIGHTS
+
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+or FITNESS FOR A PARTICULAR PURPOSE.
+See the GNU Affero General Public License for more details.
+You should have received a copy of the GNU Affero General Public License
+along with this program; if not, see http://www.gnu.org/licenses or write to
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA, 02110-1301 USA, or download the license from the following URL:
+http://itextpdf.com/terms-of-use/
+
+The interactive user interfaces in modified source and object code versions
+of this program must display Appropriate Legal Notices, as required under
+Section 5 of the GNU Affero General Public License.
+
+In accordance with Section 7(b) of the GNU Affero General Public License,
+a covered work must retain the producer line in every PDF that is created
+or manipulated using iText.
+
+You can be released from the requirements of the license by purchasing
+a commercial license. Buying such a license is mandatory as soon as you
+develop commercial activities involving the iText software without
+disclosing the source code of your own applications.
+These activities include: offering paid services to customers as an ASP,
+serving PDFs on the fly in a web application, shipping iText with a closed
+source product.
+
+For more information, please contact iText Software Corp. at this
+address: sales@itextpdf.com
+*/
+
+using System;
+using System.Collections.Generic;
+using IText.IO.Source;
+using IText.IO.Util;
+
+namespace  IText.IO.Font {
+    /// <summary>Subsets a True Type font by removing the unneeded glyphs from the font.</summary>
+    /// <author>Paulo Soares</author>
+    internal class TrueTypeFontSubset {
+        // If it's a regular font subset, we should not add `name` and `post`,
+        // because information in these tables maybe irrelevant for a subset.
+        private static readonly string[] TABLE_NAMES_SUBSET = { "cvt ", "fpgm", "glyf", "head", "hhea"
+            , "hmtx", "loca", "maxp", "prep", "cmap", "OS/2" };
+
+        // In case ttc file with subset = false (#directoryOffset > 0) `name` and `post` shall be included,
+        // because it's actually a full font.
+        private static readonly string[] TABLE_NAMES = { "cvt ", "fpgm", "glyf", "head", "hhea", "hmtx"
+            , "loca", "maxp", "prep", "cmap", "OS/2", "name", "post" };
+
+        private static readonly int[] entrySelectors = { 0, 0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 
+            4, 4, 4, 4, 4 };
+
+        private const int TABLE_CHECKSUM = 0;
+
+        private const int TABLE_OFFSET = 1;
+
+        private const int TABLE_LENGTH = 2;
+
+        private const int HEAD_LOCA_FORMAT_OFFSET = 51;
+
+        private const int ARG_1_AND_2_ARE_WORDS = 1;
+
+        private const int WE_HAVE_A_SCALE = 8;
+
+        private const int MORE_COMPONENTS = 32;
+
+        private const int WE_HAVE_AN_X_AND_Y_SCALE = 64;
+
+        private const int WE_HAVE_A_TWO_BY_TWO = 128;
+
+        /// <summary>Contains the location of the several tables.</summary>
+        /// <remarks>
+        /// Contains the location of the several tables. The key is the name of
+        /// the table and the value is an
+        /// <c>int[3]</c>
+        /// where position 0
+        /// is the checksum, position 1 is the offset from the start of the file
+        /// and position 2 is the length of the table.
+        /// </remarks>
+        private IDictionary<string, int[]> tableDirectory;
+
+        /// <summary>The file in use.</summary>
+        protected internal RandomAccessFileOrArray rf;
+
+        /// <summary>The file name.</summary>
+        private string fileName;
+
+        private bool locaShortTable;
+
+        private int[] locaTable;
+
+        private ICollection<int> glyphsUsed;
+
+        private IList<int> glyphsInList;
+
+        private int tableGlyphOffset;
+
+        private int[] newLocaTable;
+
+        private byte[] newLocaTableOut;
+
+        private byte[] newGlyfTable;
+
+        private int glyfTableRealSize;
+
+        private int locaTableRealSize;
+
+        private byte[] outFont;
+
+        private int fontPtr;
+
+        private int directoryOffset;
+
+        private readonly string[] tableNames;
+
+        /// <summary>Creates a new TrueTypeFontSubSet</summary>
+        /// <param name="directoryOffset">The offset from the start of the file to the table directory</param>
+        /// <param name="fileName">the file name of the font</param>
+        /// <param name="glyphsUsed">the glyphs used</param>
+        internal TrueTypeFontSubset(string fileName, RandomAccessFileOrArray rf, ICollection<int> glyphsUsed, int 
+            directoryOffset, bool subset) {
+            this.fileName = fileName;
+            this.rf = rf;
+            this.glyphsUsed = new HashSet<int>(glyphsUsed);
+            this.directoryOffset = directoryOffset;
+            // subset = false is possible with directoryOffset > 0, i.e. ttc font without subset.
+            if (subset) {
+                tableNames = TABLE_NAMES_SUBSET;
+            }
+            else {
+                tableNames = TABLE_NAMES;
+            }
+            glyphsInList = new List<int>(glyphsUsed);
+        }
+
+        /// <summary>Does the actual work of subsetting the font.</summary>
+        /// <returns>the subset font</returns>
+        internal virtual byte[] Process() {
+            try {
+                CreateTableDirectory();
+                ReadLoca();
+                FlatGlyphs();
+                CreateNewGlyphTables();
+                LocaToBytes();
+                AssembleFont();
+                return outFont;
+            }
+            finally {
+                try {
+                    rf.Close();
+                }
+                catch (Exception) {
+                }
+            }
+        }
+
+        private void AssembleFont() {
+            int[] tableLocation;
+            var fullFontSize = 0;
+            var tablesUsed = 2;
+            foreach (var name in tableNames) {
+                if (name.Equals("glyf") || name.Equals("loca")) {
+                    continue;
+                }
+                tableLocation = tableDirectory.Get(name);
+                if (tableLocation == null) {
+                    continue;
+                }
+                tablesUsed++;
+                fullFontSize += tableLocation[TABLE_LENGTH] + 3 & ~3;
+            }
+            fullFontSize += newLocaTableOut.Length;
+            fullFontSize += newGlyfTable.Length;
+            var reference = 16 * tablesUsed + 12;
+            fullFontSize += reference;
+            outFont = new byte[fullFontSize];
+            fontPtr = 0;
+            WriteFontInt(0x00010000);
+            WriteFontShort(tablesUsed);
+            var selector = entrySelectors[tablesUsed];
+            WriteFontShort((1 << selector) * 16);
+            WriteFontShort(selector);
+            WriteFontShort((tablesUsed - (1 << selector)) * 16);
+            foreach (var name in tableNames) {
+                int len;
+                tableLocation = tableDirectory.Get(name);
+                if (tableLocation == null) {
+                    continue;
+                }
+                WriteFontString(name);
+                switch (name) {
+                    case "glyf": {
+                        WriteFontInt(CalculateChecksum(newGlyfTable));
+                        len = glyfTableRealSize;
+                        break;
+                    }
+
+                    case "loca": {
+                        WriteFontInt(CalculateChecksum(newLocaTableOut));
+                        len = locaTableRealSize;
+                        break;
+                    }
+
+                    default: {
+                        WriteFontInt(tableLocation[TABLE_CHECKSUM]);
+                        len = tableLocation[TABLE_LENGTH];
+                        break;
+                    }
+                }
+                WriteFontInt(reference);
+                WriteFontInt(len);
+                reference += len + 3 & ~3;
+            }
+            foreach (var name in tableNames) {
+                tableLocation = tableDirectory.Get(name);
+                if (tableLocation == null) {
+                    continue;
+                }
+                switch (name) {
+                    case "glyf": {
+                        Array.Copy(newGlyfTable, 0, outFont, fontPtr, newGlyfTable.Length);
+                        fontPtr += newGlyfTable.Length;
+                        newGlyfTable = null;
+                        break;
+                    }
+
+                    case "loca": {
+                        Array.Copy(newLocaTableOut, 0, outFont, fontPtr, newLocaTableOut.Length);
+                        fontPtr += newLocaTableOut.Length;
+                        newLocaTableOut = null;
+                        break;
+                    }
+
+                    default: {
+                        rf.Seek(tableLocation[TABLE_OFFSET]);
+                        rf.ReadFully(outFont, fontPtr, tableLocation[TABLE_LENGTH]);
+                        fontPtr += tableLocation[TABLE_LENGTH] + 3 & ~3;
+                        break;
+                    }
+                }
+            }
+        }
+
+        private void CreateTableDirectory() {
+            tableDirectory = new Dictionary<string, int[]>();
+            rf.Seek(directoryOffset);
+            var id = rf.ReadInt();
+            if (id != 0x00010000) {
+                throw new IOException(IOException.NotAtTrueTypeFile).SetMessageParams(fileName);
+            }
+            var num_tables = rf.ReadUnsignedShort();
+            rf.SkipBytes(6);
+            for (var k = 0; k < num_tables; ++k) {
+                var tag = ReadStandardString(4);
+                var tableLocation = new int[3];
+                tableLocation[TABLE_CHECKSUM] = rf.ReadInt();
+                tableLocation[TABLE_OFFSET] = rf.ReadInt();
+                tableLocation[TABLE_LENGTH] = rf.ReadInt();
+                tableDirectory.Put(tag, tableLocation);
+            }
+        }
+
+        private void ReadLoca() {
+            var tableLocation = tableDirectory.Get("head");
+            if (tableLocation == null) {
+                throw new IOException(IOException.TableDoesNotExistsIn).SetMessageParams("head", fileName
+                    );
+            }
+            rf.Seek(tableLocation[TABLE_OFFSET] + HEAD_LOCA_FORMAT_OFFSET);
+            locaShortTable = rf.ReadUnsignedShort() == 0;
+            tableLocation = tableDirectory.Get("loca");
+            if (tableLocation == null) {
+                throw new IOException(IOException.TableDoesNotExistsIn).SetMessageParams("loca", fileName
+                    );
+            }
+            rf.Seek(tableLocation[TABLE_OFFSET]);
+            if (locaShortTable) {
+                var entries = tableLocation[TABLE_LENGTH] / 2;
+                locaTable = new int[entries];
+                for (var k = 0; k < entries; ++k) {
+                    locaTable[k] = rf.ReadUnsignedShort() * 2;
+                }
+            }
+            else {
+                var entries = tableLocation[TABLE_LENGTH] / 4;
+                locaTable = new int[entries];
+                for (var k = 0; k < entries; ++k) {
+                    locaTable[k] = rf.ReadInt();
+                }
+            }
+        }
+
+        private void CreateNewGlyphTables() {
+            newLocaTable = new int[locaTable.Length];
+            var activeGlyphs = new int[glyphsInList.Count];
+            for (var k = 0; k < activeGlyphs.Length; ++k) {
+                activeGlyphs[k] = glyphsInList[k];
+            }
+            JavaUtil.Sort(activeGlyphs);
+            var glyfSize = 0;
+            foreach (var glyph in activeGlyphs) {
+                glyfSize += locaTable[glyph + 1] - locaTable[glyph];
+            }
+            glyfTableRealSize = glyfSize;
+            glyfSize = glyfSize + 3 & ~3;
+            newGlyfTable = new byte[glyfSize];
+            var glyfPtr = 0;
+            var listGlyf = 0;
+            for (var k = 0; k < newLocaTable.Length; ++k) {
+                newLocaTable[k] = glyfPtr;
+                if (listGlyf < activeGlyphs.Length && activeGlyphs[listGlyf] == k) {
+                    ++listGlyf;
+                    newLocaTable[k] = glyfPtr;
+                    var start = locaTable[k];
+                    var len = locaTable[k + 1] - start;
+                    if (len > 0) {
+                        rf.Seek(tableGlyphOffset + start);
+                        rf.ReadFully(newGlyfTable, glyfPtr, len);
+                        glyfPtr += len;
+                    }
+                }
+            }
+        }
+
+        private void LocaToBytes() {
+            if (locaShortTable) {
+                locaTableRealSize = newLocaTable.Length * 2;
+            }
+            else {
+                locaTableRealSize = newLocaTable.Length * 4;
+            }
+            newLocaTableOut = new byte[locaTableRealSize + 3 & ~3];
+            outFont = newLocaTableOut;
+            fontPtr = 0;
+            foreach (var location in newLocaTable) {
+                if (locaShortTable) {
+                    WriteFontShort(location / 2);
+                }
+                else {
+                    WriteFontInt(location);
+                }
+            }
+        }
+
+        private void FlatGlyphs() {
+            var tableLocation = tableDirectory.Get("glyf");
+            if (tableLocation == null) {
+                throw new IOException(IOException.TableDoesNotExistsIn).SetMessageParams("glyf", fileName
+                    );
+            }
+            var glyph0 = 0;
+            if (!glyphsUsed.Contains(glyph0)) {
+                glyphsUsed.Add(glyph0);
+                glyphsInList.Add(glyph0);
+            }
+            tableGlyphOffset = tableLocation[TABLE_OFFSET];
+            // Do not replace with foreach. ConcurrentModificationException will arise.
+            // noinspection ForLoopReplaceableByForEach
+            for (var i = 0; i < glyphsInList.Count; i++) {
+                CheckGlyphComposite(glyphsInList[i]);
+            }
+        }
+
+        private void CheckGlyphComposite(int glyph) {
+            var start = locaTable[glyph];
+            // no contour
+            if (start == locaTable[glyph + 1]) {
+                return;
+            }
+            rf.Seek(tableGlyphOffset + start);
+            int numContours = rf.ReadShort();
+            if (numContours >= 0) {
+                return;
+            }
+            rf.SkipBytes(8);
+            for (; ; ) {
+                var flags = rf.ReadUnsignedShort();
+                var cGlyph = rf.ReadUnsignedShort();
+                if (!glyphsUsed.Contains(cGlyph)) {
+                    glyphsUsed.Add(cGlyph);
+                    glyphsInList.Add(cGlyph);
+                }
+                if ((flags & MORE_COMPONENTS) == 0) {
+                    return;
+                }
+                int skip;
+                if ((flags & ARG_1_AND_2_ARE_WORDS) != 0) {
+                    skip = 4;
+                }
+                else {
+                    skip = 2;
+                }
+                if ((flags & WE_HAVE_A_SCALE) != 0) {
+                    skip += 2;
+                }
+                else {
+                    if ((flags & WE_HAVE_AN_X_AND_Y_SCALE) != 0) {
+                        skip += 4;
+                    }
+                }
+                if ((flags & WE_HAVE_A_TWO_BY_TWO) != 0) {
+                    skip += 8;
+                }
+                rf.SkipBytes(skip);
+            }
+        }
+
+        /// <summary>
+        /// Reads a
+        /// <c>String</c>
+        /// from the font file as bytes using the Cp1252 encoding.
+        /// </summary>
+        /// <param name="length">the length of bytes to read</param>
+        /// <returns>
+        /// the
+        /// <c>String</c>
+        /// read
+        /// </returns>
+        private string ReadStandardString(int length) {
+            var buf = new byte[length];
+            rf.ReadFully(buf);
+            try {
+                return JavaUtil.GetStringForBytes(buf, PdfEncodings.WINANSI);
+            }
+            catch (Exception e) {
+                throw new IOException("TrueType font", e);
+            }
+        }
+
+        private void WriteFontShort(int n) {
+            outFont[fontPtr++] = (byte)(n >> 8);
+            outFont[fontPtr++] = (byte)n;
+        }
+
+        private void WriteFontInt(int n) {
+            outFont[fontPtr++] = (byte)(n >> 24);
+            outFont[fontPtr++] = (byte)(n >> 16);
+            outFont[fontPtr++] = (byte)(n >> 8);
+            outFont[fontPtr++] = (byte)n;
+        }
+
+        private void WriteFontString(string s) {
+            var b = PdfEncodings.ConvertToBytes(s, PdfEncodings.WINANSI);
+            Array.Copy(b, 0, outFont, fontPtr, b.Length);
+            fontPtr += b.Length;
+        }
+
+        private int CalculateChecksum(byte[] b) {
+            var len = b.Length / 4;
+            var v0 = 0;
+            var v1 = 0;
+            var v2 = 0;
+            var v3 = 0;
+            var ptr = 0;
+            for (var k = 0; k < len; ++k) {
+                v3 += b[ptr++] & 0xff;
+                v2 += b[ptr++] & 0xff;
+                v1 += b[ptr++] & 0xff;
+                v0 += b[ptr++] & 0xff;
+            }
+            return v0 + (v1 << 8) + (v2 << 16) + (v3 << 24);
+        }
+    }
+}
