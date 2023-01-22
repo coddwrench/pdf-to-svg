@@ -45,7 +45,7 @@ namespace Zlib
 
         protected ZStream ZStream = new ZStream();
 
-        protected int FlushLevel = JZlib.ZNoFlush;
+        protected FlushLevel FlushLevel = FlushLevel.NoFlush;
 
         // TODO Allow custom buf
         protected byte[] Buf = new byte[BufferSize];
@@ -133,8 +133,8 @@ namespace Zlib
                 ZStream.AvailOut = Buf.Length;
 
                 var err = Compress
-                    ? ZStream.Deflate(JZlib.ZFinish)
-                    : ZStream.Inflate(JZlib.ZFinish);
+                    ? ZStream.Deflate(FlushLevel.Finish)
+                    : ZStream.Inflate(FlushLevel.Finish);
 
                 if (err != ZStreamState.StreamEnd && err != ZStreamState.Ok)
                     // TODO
@@ -156,7 +156,7 @@ namespace Zlib
             Output.Flush();
         }
 
-        public virtual int FlushMode
+        public virtual FlushLevel FlushMode
         {
             get => FlushLevel;
             set => FlushLevel = value;

@@ -37,33 +37,10 @@ using System;
 
 namespace Zlib
 {
-
-    public enum ZStreamState
-    {
-        Ok = 0,
-        StreamEnd = 1,
-        NeedDict = 2,
-        Errno = -1,
-        StreamError = -2,
-        DataError = -3,
-        MemError = -4,
-        BufError = -5,
-        VersionError = -6,
-    }
-
     public sealed class ZStream
     {
 
-        private const int MaxWbits = 15; // 32K LZ77 window
-        private const int DefWbits = MaxWbits;
-
-        private const int ZNoFlush = 0;
-        private const int ZPartialFlush = 1;
-        private const int ZSyncFlush = 2;
-        private const int ZFullFlush = 3;
-        private const int ZFinish = 4;
-        private const int MaxMemLevel = 9;
-
+        private const int DefWBits = Utils.MaxWBits;
 
         public byte[] NextIn; // next input byte
         public int NextInIndex;
@@ -77,8 +54,8 @@ namespace Zlib
 
         public string Msg;
 
-        internal Deflate Dstate;
-        internal Inflate Istate;
+        internal Deflate DeflateState;
+        internal Inflate InflateState;
 
         internal int DataType; // best guess about the data type: ascii or binary
 
@@ -86,12 +63,12 @@ namespace Zlib
 
         public int InflateInit()
         {
-            return InflateInit(DefWbits);
+            return InflateInit(DefWBits);
         }
 
         public int InflateInit(bool nowrap)
         {
-            return InflateInit(DefWbits, nowrap);
+            return InflateInit(DefWBits, nowrap);
         }
 
         public int InflateInit(int w)
@@ -101,46 +78,47 @@ namespace Zlib
 
         public int InflateInit(int w, bool nowrap)
         {
-            Istate = new Inflate();
-            return Istate.InflateInit(this, nowrap ? -w : w);
+            InflateState = new Inflate();
+            return InflateState.InflateInit(this, nowrap ? -w : w);
         }
 
-        public ZStreamState Inflate(int f)
+        public ZStreamState Inflate(FlushLevel f)
         {
-            if (Istate == null) return ZStreamState.StreamError;
-            return Istate.Inflated(this, f);
+            if (InflateState == null) 
+                return ZStreamState.StreamError;
+            return InflateState.Inflated(this, f);
         }
 
         public int InflateEnd()
         {
-            if (Istate == null) return (int) ZStreamState.StreamError;
-            var ret = Istate.InflateEnd(this);
-            Istate = null;
+            if (InflateState == null) return (int) ZStreamState.StreamError;
+            var ret = InflateState.InflateEnd(this);
+            InflateState = null;
             return ret;
         }
 
         public int InflateSync()
         {
-            if (Istate == null)
+            if (InflateState == null)
                 return (int) ZStreamState.StreamError;
-            return Istate.InflateSync(this);
+            return InflateState.InflateSync(this);
         }
 
         public int InflateSetDictionary(byte[] dictionary, int dictLength)
         {
-            if (Istate == null)
+            if (InflateState == null)
                 return (int) ZStreamState.StreamError;
-            return Istate.InflateSetDictionary(this, dictionary, dictLength);
+            return InflateState.InflateSetDictionary(this, dictionary, dictLength);
         }
 
         public ZStreamState DeflateInit(int level)
         {
-            return DeflateInit(level, MaxWbits);
+            return DeflateInit(level, Utils.MaxWBits);
         }
 
         public ZStreamState DeflateInit(int level, bool nowrap)
         {
-            return DeflateInit(level, MaxWbits, nowrap);
+            return DeflateInit(level, Utils.MaxWBits, nowrap);
         }
 
         public ZStreamState DeflateInit(int level, int bits)
@@ -150,39 +128,39 @@ namespace Zlib
 
         public ZStreamState DeflateInit(int level, int bits, bool nowrap)
         {
-            Dstate = new Deflate();
-            return Dstate.DeflateInit(this, level, nowrap ? -bits : bits);
+            DeflateState = new Deflate();
+            return DeflateState.DeflateInit(this, level, nowrap ? -bits : bits);
         }
 
-        public ZStreamState Deflate(int flush)
+        public ZStreamState Deflate(FlushLevel flush)
         {
-            if (Dstate == null)
+            if (DeflateState == null)
             {
                 return ZStreamState.StreamError;
             }
 
-            return Dstate.Deflated(this, flush);
+            return DeflateState.Deflated(this, flush);
         }
 
         public ZStreamState DeflateEnd()
         {
-            if (Dstate == null) return  ZStreamState.StreamError;
-            var ret = Dstate.DeflateEnd();
-            Dstate = null;
+            if (DeflateState == null) return  ZStreamState.StreamError;
+            var ret = DeflateState.DeflateEnd();
+            DeflateState = null;
             return ret;
         }
 
         public ZStreamState DeflateParams(int level, int strategy)
         {
-            if (Dstate == null) return  ZStreamState.StreamError;
-            return Dstate.DeflateParams(this, level, strategy);
+            if (DeflateState == null) return  ZStreamState.StreamError;
+            return DeflateState.DeflateParams(this, level, strategy);
         }
 
         public ZStreamState DeflateSetDictionary(byte[] dictionary, int dictLength)
         {
-            if (Dstate == null)
+            if (DeflateState == null)
                 return ZStreamState.StreamError;
-            return Dstate.DeflateSetDictionary(this, dictionary, dictLength);
+            return DeflateState.DeflateSetDictionary(this, dictionary, dictLength);
         }
 
         // Flush as much pending output as possible. All deflate() output goes
@@ -191,32 +169,22 @@ namespace Zlib
         // (See also read_buf()).
         internal void flush_pending()
         {
-            var len = Dstate.Pending;
+            var len = DeflateState.Pending;
 
             if (len > AvailOut) len = AvailOut;
             if (len == 0) return;
 
-            if (Dstate.PendingBuf.Length <= Dstate.PendingOut ||
-                NextOut.Length <= NextOutIndex ||
-                Dstate.PendingBuf.Length < (Dstate.PendingOut + len) ||
-                NextOut.Length < (NextOutIndex + len))
-            {
-                //      System.out.println(dstate.pending_buf.length+", "+dstate.pending_out+
-                //			 ", "+next_out.length+", "+next_out_index+", "+len);
-                //      System.out.println("avail_out="+avail_out);
-            }
-
-            Array.Copy(Dstate.PendingBuf, Dstate.PendingOut,
+            Array.Copy(DeflateState.PendingBuf, DeflateState.PendingOut,
                 NextOut, NextOutIndex, len);
 
             NextOutIndex += len;
-            Dstate.PendingOut += len;
+            DeflateState.PendingOut += len;
             TotalOut += len;
             AvailOut -= len;
-            Dstate.Pending -= len;
-            if (Dstate.Pending == 0)
+            DeflateState.Pending -= len;
+            if (DeflateState.Pending == 0)
             {
-                Dstate.PendingOut = 0;
+                DeflateState.PendingOut = 0;
             }
         }
 
@@ -234,7 +202,7 @@ namespace Zlib
 
             AvailIn -= len;
 
-            if (Dstate.Noheader == 0)
+            if (DeflateState.Noheader == 0)
             {
                 Adler = Utils.Adler32(Adler, NextIn, NextInIndex, len);
             }

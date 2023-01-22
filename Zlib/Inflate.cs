@@ -39,15 +39,10 @@ namespace Zlib
     internal sealed class Inflate
     {
 
-        private const int MAX_WBITS = 15; // 32K LZ77 window
-
         // preset dictionary flag in zlib header
         private const int PresetDict = 0x20;
 
-        internal const int ZNoFlush = 0;
-        internal const int ZPartialFlush = 1;
-        internal const int ZSyncFlush = 2;
-        internal const int ZFullFlush = 3;
+
         internal const int ZFinish = 4;
 
         private const int ZDeflated = 8;
@@ -87,12 +82,12 @@ namespace Zlib
 
         internal int InflateReset(ZStream z)
         {
-            if (z == null || z.Istate == null) return (int) ZStreamState.StreamError;
+            if (z == null || z.InflateState == null) return (int) ZStreamState.StreamError;
 
             z.TotalIn = z.TotalOut = 0;
             z.Msg = null;
-            z.Istate.Mode = z.Istate.nowrap != 0 ? BLOCKS : METHOD;
-            z.Istate.blocks.reset(z, null);
+            z.InflateState.Mode = z.InflateState.nowrap != 0 ? BLOCKS : METHOD;
+            z.InflateState.blocks.reset(z, null);
             return (int) ZStreamState.Ok;
         }
 
@@ -127,8 +122,8 @@ namespace Zlib
 
             wbits = w;
 
-            zStream.Istate.blocks = new InfBlocks(zStream,
-                zStream.Istate.nowrap != 0 ? null : this,
+            zStream.InflateState.blocks = new InfBlocks(zStream,
+                zStream.InflateState.nowrap != 0 ? null : this,
                 1 << w);
 
             // reset state
@@ -136,19 +131,19 @@ namespace Zlib
             return (int) ZStreamState.Ok;
         }
 
-        internal ZStreamState Inflated(ZStream zStream, int f)
+        internal ZStreamState Inflated(ZStream zStream, FlushLevel f)
         {
             ZStreamState r;
             int b;
 
-            if (zStream == null || zStream.Istate == null || zStream.NextIn == null)
+            if (zStream == null || zStream.InflateState == null || zStream.NextIn == null)
                 return  ZStreamState.StreamError;
-            f = f == ZFinish ? (int) ZStreamState.BufError : (int) ZStreamState.Ok;
+            f = (FlushLevel)(f == FlushLevel.Finish ? (int) ZStreamState.BufError : (int) ZStreamState.Ok);
             r = ZStreamState.BufError;
             while (true)
             {
                 //System.out.println("mode: "+z.istate.mode);
-                switch (zStream.Istate.Mode)
+                switch (zStream.InflateState.Mode)
                 {
                     case METHOD:
 
@@ -157,23 +152,23 @@ namespace Zlib
 
                         zStream.AvailIn--;
                         zStream.TotalIn++;
-                        if (((zStream.Istate.method = zStream.NextIn[zStream.NextInIndex++]) & 0xf) != ZDeflated)
+                        if (((zStream.InflateState.method = zStream.NextIn[zStream.NextInIndex++]) & 0xf) != ZDeflated)
                         {
-                            zStream.Istate.Mode = BAD;
+                            zStream.InflateState.Mode = BAD;
                             zStream.Msg = "unknown compression method";
-                            zStream.Istate.marker = 5; // can't try inflateSync
+                            zStream.InflateState.marker = 5; // can't try inflateSync
                             break;
                         }
 
-                        if ((zStream.Istate.method >> 4) + 8 > zStream.Istate.wbits)
+                        if ((zStream.InflateState.method >> 4) + 8 > zStream.InflateState.wbits)
                         {
-                            zStream.Istate.Mode = BAD;
+                            zStream.InflateState.Mode = BAD;
                             zStream.Msg = "invalid window size";
-                            zStream.Istate.marker = 5; // can't try inflateSync
+                            zStream.InflateState.marker = 5; // can't try inflateSync
                             break;
                         }
 
-                        zStream.Istate.Mode = FLAG;
+                        zStream.InflateState.Mode = FLAG;
                         goto case FLAG;
                     case FLAG:
 
@@ -184,21 +179,21 @@ namespace Zlib
                         zStream.TotalIn++;
                         b = (zStream.NextIn[zStream.NextInIndex++]) & 0xff;
 
-                        if ((((zStream.Istate.method << 8) + b) % 31) != 0)
+                        if ((((zStream.InflateState.method << 8) + b) % 31) != 0)
                         {
-                            zStream.Istate.Mode = BAD;
+                            zStream.InflateState.Mode = BAD;
                             zStream.Msg = "incorrect header check";
-                            zStream.Istate.marker = 5; // can't try inflateSync
+                            zStream.InflateState.marker = 5; // can't try inflateSync
                             break;
                         }
 
                         if ((b & PresetDict) == 0)
                         {
-                            zStream.Istate.Mode = BLOCKS;
+                            zStream.InflateState.Mode = BLOCKS;
                             break;
                         }
 
-                        zStream.Istate.Mode = Dict4;
+                        zStream.InflateState.Mode = Dict4;
                         goto case Dict4;
                     case Dict4:
 
@@ -207,8 +202,8 @@ namespace Zlib
 
                         zStream.AvailIn--;
                         zStream.TotalIn++;
-                        zStream.Istate.need = ((zStream.NextIn[zStream.NextInIndex++] & 0xff) << 24) & 0xff000000L;
-                        zStream.Istate.Mode = Dict3;
+                        zStream.InflateState.need = ((zStream.NextIn[zStream.NextInIndex++] & 0xff) << 24) & 0xff000000L;
+                        zStream.InflateState.Mode = Dict3;
                         goto case Dict3;
                     case Dict3:
 
@@ -217,8 +212,8 @@ namespace Zlib
 
                         zStream.AvailIn--;
                         zStream.TotalIn++;
-                        zStream.Istate.need += ((zStream.NextIn[zStream.NextInIndex++] & 0xff) << 16) & 0xff0000L;
-                        zStream.Istate.Mode = Dict2;
+                        zStream.InflateState.need += ((zStream.NextIn[zStream.NextInIndex++] & 0xff) << 16) & 0xff0000L;
+                        zStream.InflateState.Mode = Dict2;
                         goto case Dict2;
                     case Dict2:
 
@@ -227,8 +222,8 @@ namespace Zlib
 
                         zStream.AvailIn--;
                         zStream.TotalIn++;
-                        zStream.Istate.need += ((zStream.NextIn[zStream.NextInIndex++] & 0xff) << 8) & 0xff00L;
-                        zStream.Istate.Mode = Dict1;
+                        zStream.InflateState.need += ((zStream.NextIn[zStream.NextInIndex++] & 0xff) << 8) & 0xff00L;
+                        zStream.InflateState.Mode = Dict1;
                         goto case Dict1;
                     case Dict1:
 
@@ -237,22 +232,22 @@ namespace Zlib
 
                         zStream.AvailIn--;
                         zStream.TotalIn++;
-                        zStream.Istate.need += (zStream.NextIn[zStream.NextInIndex++] & 0xffL);
-                        zStream.Adler = zStream.Istate.need;
-                        zStream.Istate.Mode = Dict0;
+                        zStream.InflateState.need += (zStream.NextIn[zStream.NextInIndex++] & 0xffL);
+                        zStream.Adler = zStream.InflateState.need;
+                        zStream.InflateState.Mode = Dict0;
                         return  ZStreamState.NeedDict;
                     case Dict0:
-                        zStream.Istate.Mode = BAD;
+                        zStream.InflateState.Mode = BAD;
                         zStream.Msg = "need dictionary";
-                        zStream.Istate.marker = 0; // can try inflateSync
+                        zStream.InflateState.marker = 0; // can try inflateSync
                         return  ZStreamState.StreamError;
                     case BLOCKS:
 
-                        r = zStream.Istate.blocks.proc(zStream, r);
+                        r = zStream.InflateState.blocks.proc(zStream, r);
                         if (r == ZStreamState.DataError)
                         {
-                            zStream.Istate.Mode = BAD;
-                            zStream.Istate.marker = 0; // can try inflateSync
+                            zStream.InflateState.Mode = BAD;
+                            zStream.InflateState.marker = 0; // can try inflateSync
                             break;
                         }
 
@@ -267,14 +262,14 @@ namespace Zlib
                         }
 
                         r = (ZStreamState)f;
-                        zStream.Istate.blocks.reset(zStream, zStream.Istate.was);
-                        if (zStream.Istate.nowrap != 0)
+                        zStream.InflateState.blocks.reset(zStream, zStream.InflateState.was);
+                        if (zStream.InflateState.nowrap != 0)
                         {
-                            zStream.Istate.Mode = Done;
+                            zStream.InflateState.Mode = Done;
                             break;
                         }
 
-                        zStream.Istate.Mode = Check4;
+                        zStream.InflateState.Mode = Check4;
                         goto case Check4;
                     case Check4:
 
@@ -283,8 +278,8 @@ namespace Zlib
 
                         zStream.AvailIn--;
                         zStream.TotalIn++;
-                        zStream.Istate.need = ((zStream.NextIn[zStream.NextInIndex++] & 0xff) << 24) & 0xff000000L;
-                        zStream.Istate.Mode = CHECK3;
+                        zStream.InflateState.need = ((zStream.NextIn[zStream.NextInIndex++] & 0xff) << 24) & 0xff000000L;
+                        zStream.InflateState.Mode = CHECK3;
                         goto case CHECK3;
                     case CHECK3:
 
@@ -293,8 +288,8 @@ namespace Zlib
 
                         zStream.AvailIn--;
                         zStream.TotalIn++;
-                        zStream.Istate.need += ((zStream.NextIn[zStream.NextInIndex++] & 0xff) << 16) & 0xff0000L;
-                        zStream.Istate.Mode = CHECK2;
+                        zStream.InflateState.need += ((zStream.NextIn[zStream.NextInIndex++] & 0xff) << 16) & 0xff0000L;
+                        zStream.InflateState.Mode = CHECK2;
                         goto case CHECK2;
                     case CHECK2:
 
@@ -303,8 +298,8 @@ namespace Zlib
 
                         zStream.AvailIn--;
                         zStream.TotalIn++;
-                        zStream.Istate.need += ((zStream.NextIn[zStream.NextInIndex++] & 0xff) << 8) & 0xff00L;
-                        zStream.Istate.Mode = CHECK1;
+                        zStream.InflateState.need += ((zStream.NextIn[zStream.NextInIndex++] & 0xff) << 8) & 0xff00L;
+                        zStream.InflateState.Mode = CHECK1;
                         goto case CHECK1;
                     case CHECK1:
 
@@ -313,17 +308,17 @@ namespace Zlib
 
                         zStream.AvailIn--;
                         zStream.TotalIn++;
-                        zStream.Istate.need += (zStream.NextIn[zStream.NextInIndex++] & 0xffL);
+                        zStream.InflateState.need += (zStream.NextIn[zStream.NextInIndex++] & 0xffL);
 
-                        if (((int) (zStream.Istate.was[0])) != ((int) (zStream.Istate.need)))
+                        if (((int) (zStream.InflateState.was[0])) != ((int) (zStream.InflateState.need)))
                         {
-                            zStream.Istate.Mode = BAD;
+                            zStream.InflateState.Mode = BAD;
                             zStream.Msg = "incorrect data check";
-                            zStream.Istate.marker = 5; // can't try inflateSync
+                            zStream.InflateState.marker = 5; // can't try inflateSync
                             break;
                         }
 
-                        zStream.Istate.Mode = Done;
+                        zStream.InflateState.Mode = Done;
                         goto case Done;
                     case Done:
                         return ZStreamState.StreamEnd;
@@ -340,7 +335,7 @@ namespace Zlib
         {
             var index = 0;
             var length = dictLength;
-            if (z == null || z.Istate == null || z.Istate.Mode != Dict0)
+            if (z == null || z.InflateState == null || z.InflateState.Mode != Dict0)
                 return (int) ZStreamState.StreamError;
 
             if (Utils.Adler32(1L, dictionary, 0, dictLength) != z.Adler)
@@ -350,14 +345,14 @@ namespace Zlib
 
             z.Adler = Utils.Adler32(0, null, 0, 0);
 
-            if (length >= (1 << z.Istate.wbits))
+            if (length >= (1 << z.InflateState.wbits))
             {
-                length = (1 << z.Istate.wbits) - 1;
+                length = (1 << z.InflateState.wbits) - 1;
                 index = dictLength - length;
             }
 
-            z.Istate.blocks.set_dictionary(dictionary, index, length);
-            z.Istate.Mode = BLOCKS;
+            z.InflateState.blocks.set_dictionary(dictionary, index, length);
+            z.InflateState.Mode = BLOCKS;
             return (int) ZStreamState.Ok;
         }
 
@@ -371,18 +366,18 @@ namespace Zlib
             long r, w; // temporaries to save total_in and total_out
 
             // set up
-            if (z == null || z.Istate == null)
+            if (z == null || z.InflateState == null)
                 return (int) ZStreamState.StreamError;
-            if (z.Istate.Mode != BAD)
+            if (z.InflateState.Mode != BAD)
             {
-                z.Istate.Mode = BAD;
-                z.Istate.marker = 0;
+                z.InflateState.Mode = BAD;
+                z.InflateState.marker = 0;
             }
 
             if ((n = z.AvailIn) == 0)
                 return (int) ZStreamState.BufError;
             p = z.NextInIndex;
-            m = z.Istate.marker;
+            m = z.InflateState.marker;
 
             // search
             while (n != 0 && m < 4)
@@ -408,7 +403,7 @@ namespace Zlib
             z.TotalIn += p - z.NextInIndex;
             z.NextInIndex = p;
             z.AvailIn = n;
-            z.Istate.marker = m;
+            z.InflateState.marker = m;
 
             // return no joy or set up to restart on a new block
             if (m != 4)
@@ -421,7 +416,7 @@ namespace Zlib
             InflateReset(z);
             z.TotalIn = r;
             z.TotalOut = w;
-            z.Istate.Mode = BLOCKS;
+            z.InflateState.Mode = BLOCKS;
             return (int) ZStreamState.Ok;
         }
 
@@ -433,9 +428,9 @@ namespace Zlib
         // waiting for these length bytes.
         internal int InflateSyncPoint(ZStream z)
         {
-            if (z?.Istate?.blocks == null)
+            if (z?.InflateState?.blocks == null)
                 return (int) ZStreamState.StreamError;
-            return z.Istate.blocks.sync_point();
+            return z.InflateState.blocks.sync_point();
         }
     }
 }

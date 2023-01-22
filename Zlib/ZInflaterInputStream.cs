@@ -50,7 +50,7 @@ namespace Zlib {
     /// </summary>
     public class ZInflaterInputStream : Stream {
         protected ZStream z=new ZStream();
-        protected int flushLevel=JZlib.ZNoFlush;
+        protected FlushLevel flushLevel = FlushLevel.NoFlush;
         private const int BUFSIZE = 4192;
         protected byte[] buf=new byte[BUFSIZE];
         private byte[] buf1=new byte[1];

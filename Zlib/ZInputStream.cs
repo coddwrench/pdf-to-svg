@@ -46,7 +46,7 @@ namespace Zlib
 
         protected ZStream z = new ZStream();
 
-        protected int flushLevel = JZlib.ZNoFlush;
+        protected FlushLevel flushLevel = FlushLevel.NoFlush;
 
         // TODO Allow custom buf
         protected byte[] buf = new byte[BufferSize];
@@ -115,7 +115,7 @@ namespace Zlib
         {
         }
 
-        public virtual int FlushMode
+        public virtual FlushLevel FlushMode
         {
             get => flushLevel;
             set => flushLevel = value;

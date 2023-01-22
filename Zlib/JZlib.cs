@@ -35,7 +35,6 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 namespace Zlib
 {
-
     internal sealed class JZlib
     {
         // compression levels
@@ -48,12 +47,5 @@ namespace Zlib
         public const int ZFiltered = 1;
         public const int ZHuffmanOnly = 2;
         public const int ZDefaultStrategy = 0;
-
-        public const int ZNoFlush = 0;
-        public const int ZPartialFlush = 1;
-        public const int ZSyncFlush = 2;
-        public const int ZFullFlush = 3;
-        public const int ZFinish = 4;
-
     }
 }

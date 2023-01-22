@@ -52,7 +52,7 @@ namespace Zlib
     public class ZDeflaterOutputStream : Stream
     {
         protected ZStream z = new ZStream();
-        protected int flushLevel = JZlib.ZNoFlush;
+        protected FlushLevel flushLevel = FlushLevel.NoFlush;
         private const int BUFSIZE = 4192;
         protected byte[] buf = new byte[BUFSIZE];
         private byte[] buf1 = new byte[1];
@@ -181,7 +181,7 @@ namespace Zlib
                 z.NextOut = buf;
                 z.NextOutIndex = 0;
                 z.AvailOut = BUFSIZE;
-                err = z.Deflate(JZlib.ZFinish);
+                err = z.Deflate(FlushLevel.Finish);
                 if (err != ZStreamState.StreamEnd && err != ZStreamState.Ok)
                     throw new IOException("deflating: " + z.Msg);
                 if (BUFSIZE - z.AvailOut > 0)
