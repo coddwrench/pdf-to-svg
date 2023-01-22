@@ -9,12 +9,12 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ITextPDF", "ITextPDF\ITextP
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ITextPdf2SVG", "ITextPdf2SVG\ITextPdf2SVG.csproj", "{AD7D36FB-BCD0-4189-80E2-A01100FDA84B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Viewer2", "Viewer2\Viewer2.csproj", "{2EBEDB03-F49A-4816-ABFA-6EC60B4E2E25}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Viewer", "Viewer\Viewer.csproj", "{2EBEDB03-F49A-4816-ABFA-6EC60B4E2E25}"
 	ProjectSection(ProjectDependencies) = postProject
 		{0300B6F7-6654-45EB-B62C-070AB4B43E7E} = {0300B6F7-6654-45EB-B62C-070AB4B43E7E}
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Zlib", "Zlib2\Zlib.csproj", "{0300B6F7-6654-45EB-B62C-070AB4B43E7E}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Zlib", "Zlib\Zlib.csproj", "{0300B6F7-6654-45EB-B62C-070AB4B43E7E}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

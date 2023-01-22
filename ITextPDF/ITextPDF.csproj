@@ -711,8 +711,8 @@
     <Reference Include="System.Xml.Linq" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Zlib2\Zlib.csproj">
-      <Project>{0300b6f7-6654-45eb-b62c-070ab4b43e7e}</Project>
+    <ProjectReference Include="..\Zlib\Zlib.csproj">
+      <Project>{0300B6F7-6654-45EB-B62C-070AB4B43E7E}</Project>
       <Name>Zlib</Name>
     </ProjectReference>
   </ItemGroup>
