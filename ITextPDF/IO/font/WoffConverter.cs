@@ -44,7 +44,7 @@ address: sales@itextpdf.com
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.util.zlib;
+using Zlib;
 
 namespace  IText.IO.Font {
     internal class WoffConverter {

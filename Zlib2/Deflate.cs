@@ -33,7 +33,9 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * and contributors of zlib.
  */
 
-namespace System.util.zlib {
+using System;
+
+namespace Zlib {
 
     internal sealed class Deflate{
 
@@ -1412,7 +1414,7 @@ namespace System.util.zlib {
                 noheader = 0; // was set to -1 by deflate(..., Z_FINISH);
             }
             status = (noheader!=0) ? BUSY_STATE : INIT_STATE;
-            strm.adler=strm._adler.adler32(0, null, 0, 0);
+            strm.adler= Utils.adler32(0, null, 0, 0);
 
             last_flush = Z_NO_FLUSH;
 
@@ -1470,7 +1472,7 @@ namespace System.util.zlib {
             if(dictionary == null || status != INIT_STATE)
                 return Z_STREAM_ERROR;
 
-            strm.adler=strm._adler.adler32(strm.adler, dictionary, 0, dictLength);
+            strm.adler= Utils.adler32(strm.adler, dictionary, 0, dictLength);
 
             if(length < MIN_MATCH) return Z_OK;
             if(length > w_size-MIN_LOOKAHEAD){
@@ -1537,7 +1539,7 @@ namespace System.util.zlib {
                     putShortMSB((int)(strm.adler>>16));
                     putShortMSB((int)(strm.adler&0xffff));
                 }
-                strm.adler=strm._adler.adler32(0, null, 0, 0);
+                strm.adler= Utils.adler32(0, null, 0, 0);
             }
 
             // Flush as much pending output as possible

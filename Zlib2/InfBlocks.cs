@@ -33,7 +33,9 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * and contributors of zlib.
  */
 
-namespace System.util.zlib {
+using System;
+
+namespace Zlib {
 
     internal sealed class InfBlocks{
         private const int MANY=1440;
@@ -121,7 +123,7 @@ namespace System.util.zlib {
             read=write=0;
 
             if(checkfn != null)
-                z.adler=check=z._adler.adler32(0L, null, 0, 0);
+                z.adler=check= Utils.adler32(0L, null, 0, 0);
         }
 
         internal int proc(ZStream z, int r){
@@ -573,7 +575,7 @@ namespace System.util.zlib {
 
             // update check information
             if(checkfn != null)
-                z.adler=check=z._adler.adler32(check, window, q, n);
+                z.adler=check= Utils.adler32(check, window, q, n);
 
             // copy as far as end of window
             Array.Copy(window, q, z.next_out, p, n);
@@ -598,7 +600,7 @@ namespace System.util.zlib {
 
                 // update check information
                 if(checkfn != null)
-                    z.adler=check=z._adler.adler32(check, window, q, n);
+                    z.adler=check= Utils.adler32(check, window, q, n);
 
                 // copy
                 Array.Copy(window, q, z.next_out, p, n);

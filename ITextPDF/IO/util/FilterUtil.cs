@@ -44,7 +44,7 @@ address: sales@itextpdf.com
 
 using System;
 using System.IO;
-using System.util.zlib;
+using Zlib;
 
 namespace  IText.IO.Util {
     /// <summary>

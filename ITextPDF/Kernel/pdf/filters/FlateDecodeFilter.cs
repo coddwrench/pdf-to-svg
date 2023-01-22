@@ -45,7 +45,7 @@ address: sales@itextpdf.com
 using System;
 using System.Diagnostics;
 using System.IO;
-using System.util.zlib;
+using Zlib;
 
 namespace IText.Kernel.Pdf.Filters {
     /// <summary>Handles FlateDecode filter.</summary>

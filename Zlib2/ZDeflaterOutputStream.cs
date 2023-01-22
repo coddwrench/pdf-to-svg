@@ -44,35 +44,35 @@ address: sales@itextpdf.com
 
 using System.IO;
 
-namespace System.util.zlib {
+namespace Zlib {
     /// <summary>
     /// Summary description for DeflaterOutputStream.
     /// </summary>
-    public class ZInflaterInputStream : Stream {
+    public class ZDeflaterOutputStream : Stream {
         protected ZStream z=new ZStream();
         protected int flushLevel=JZlib.Z_NO_FLUSH;
         private const int BUFSIZE = 4192;
         protected byte[] buf=new byte[BUFSIZE];
         private byte[] buf1=new byte[1];
 
-        protected Stream inp;
-        private bool nomoreinput;
+        protected Stream outp;
 
-        public ZInflaterInputStream(Stream inp) : this(inp, false) {
+        public ZDeflaterOutputStream(Stream outp) : this(outp, 6, false) {
         }
     
-        public ZInflaterInputStream(Stream inp, bool nowrap) {
-            this.inp=inp;
-            z.inflateInit(nowrap);
-            z.next_in=buf;
-            z.next_in_index=0;
-            z.avail_in=0;
+        public ZDeflaterOutputStream(Stream outp, int level) : this(outp, level, false) {
         }
+    
+        public ZDeflaterOutputStream(Stream outp, int level, bool nowrap) {
+            this.outp=outp;
+            z.deflateInit(level, nowrap);
+        }
+    
     
         public override bool CanRead {
             get {
                 // TODO:  Add DeflaterOutputStream.CanRead getter implementation
-                return true;
+                return false;
             }
         }
     
@@ -86,7 +86,7 @@ namespace System.util.zlib {
         public override bool CanWrite {
             get {
                 // TODO:  Add DeflaterOutputStream.CanWrite getter implementation
-                return false;
+                return true;
             }
         }
     
@@ -108,6 +108,23 @@ namespace System.util.zlib {
         }
     
         public override void Write(byte[] b, int off, int len) {
+            if(len==0)
+                return;
+            int err;
+            z.next_in=b;
+            z.next_in_index=off;
+            z.avail_in=len;
+            do{
+                z.next_out=buf;
+                z.next_out_index=0;
+                z.avail_out=BUFSIZE;
+                err=z.deflate(flushLevel);
+                if(err!=JZlib.Z_OK)
+                    throw new IOException("deflating: "+z.msg);
+                if (z.avail_out < BUFSIZE)
+                    outp.Write(buf, 0, BUFSIZE-z.avail_out);
+            } 
+            while(z.avail_in>0 || z.avail_out==0);
         }
     
         public override long Seek(long offset, SeekOrigin origin) {
@@ -120,51 +137,59 @@ namespace System.util.zlib {
 
         }
     
-        public override int Read(byte[] b, int off, int len) {
-            if(len==0)
-                return(0);
-            int err;
-            z.next_out=b;
-            z.next_out_index=off;
-            z.avail_out=len;
-            do {
-                if((z.avail_in==0)&&(!nomoreinput)) { // if buffer is empty and more input is avaiable, refill it
-                    z.next_in_index=0;
-                    z.avail_in=inp.Read(buf, 0, BUFSIZE);//(BUFSIZE<z.avail_out ? BUFSIZE : z.avail_out));
-                    if(z.avail_in<=0) {
-                        z.avail_in=0;
-                        nomoreinput=true;
-                    }
-                }
-                err = z.inflate(flushLevel);
-                if (err!=JZlib.Z_OK && err!=JZlib.Z_STREAM_END)
-                    throw new IOException("inflating: "+z.msg);
-                if((nomoreinput||err==JZlib.Z_STREAM_END)&&(z.avail_out==len))
-                    return(0);
-            } 
-            while(z.avail_out==len&&err==JZlib.Z_OK);
-            //System.err.print("("+(len-z.avail_out)+")");
-            return(len-z.avail_out);
+        public override int Read(byte[] buffer, int offset, int count) {
+            // TODO:  Add DeflaterOutputStream.Read implementation
+            return 0;
         }
     
         public override void Flush() {
-            inp.Flush();
+            outp.Flush();
         }
     
         public override void WriteByte(byte b) {
+            buf1[0]=b;
+            Write(buf1, 0, 1);
+        }
+
+        virtual public void Finish() {
+            int err;
+            do{
+                z.next_out=buf;
+                z.next_out_index=0;
+                z.avail_out=BUFSIZE;
+                err=z.deflate(JZlib.Z_FINISH);
+                if(err!=JZlib.Z_STREAM_END && err != JZlib.Z_OK)
+                    throw new IOException("deflating: "+z.msg);
+                if(BUFSIZE-z.avail_out>0){
+                    outp.Write(buf, 0, BUFSIZE-z.avail_out);
+                }
+            }
+            while(z.avail_in>0 || z.avail_out==0);
+            Flush();
+        }
+
+        virtual public void End() {
+            if(z==null)
+                return;
+            z.deflateEnd();
+            z.free();
+            z=null;
         }
 
         protected override void Dispose(bool disposing) {
             if (disposing) {
-                inp.Dispose();
+                try {
+                    try {
+                        Finish();
+                    } catch (IOException) {
+                    }
+                } finally {
+                    End();
+                    outp.Dispose();
+                    outp = null;
+                }
             }
             base.Dispose(disposing);
-        }
-    
-        public override int ReadByte() {
-            if(Read(buf1, 0, 1)<=0)
-                return -1;
-            return(buf1[0]&0xFF);
         }
     }
 }

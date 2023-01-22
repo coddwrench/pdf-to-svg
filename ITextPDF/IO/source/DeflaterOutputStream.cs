@@ -43,7 +43,7 @@ address: sales@itextpdf.com
 */
 
 using System.IO;
-using System.util.zlib;
+using Zlib;
 
 namespace  IText.IO.Source {
 	public class DeflaterOutputStream : ZDeflaterOutputStream

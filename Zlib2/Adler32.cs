@@ -33,16 +33,16 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * and contributors of zlib.
  */
 
-namespace System.util.zlib {
+namespace Zlib {
 
-    internal sealed class Adler32{
+    internal static class Utils{
 
         // largest prime smaller than 65536
         private const int BASE=65521; 
         // NMAX is the largest n such that 255n(n+1)/2 + (n+1)(BASE-1) <= 2^32-1
         private const int NMAX=5552;
 
-        internal long adler32(long adler, byte[] buf, int index, int len){
+        internal static long adler32(long adler, byte[] buf, int index, int len){
             if(buf == null){ return 1L; }
 
             var s1=adler&0xffff;

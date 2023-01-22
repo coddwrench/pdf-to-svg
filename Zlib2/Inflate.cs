@@ -33,7 +33,7 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * and contributors of zlib.
  */
 
-namespace System.util.zlib {
+namespace Zlib {
 
     internal sealed class Inflate{
   
@@ -305,11 +305,11 @@ namespace System.util.zlib {
             if(z==null || z.istate == null|| z.istate.mode != DICT0)
                 return Z_STREAM_ERROR;
 
-            if(z._adler.adler32(1L, dictionary, 0, dictLength)!=z.adler){
+            if(Utils.adler32(1L, dictionary, 0, dictLength)!=z.adler){
                 return Z_DATA_ERROR;
             }
 
-            z.adler = z._adler.adler32(0, null, 0, 0);
+            z.adler = Utils.adler32(0, null, 0, 0);
 
             if(length >= (1<<z.istate.wbits)){
                 length = (1<<z.istate.wbits)-1;

@@ -33,10 +33,11 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /* This file is a port of jzlib v1.0.7, com.jcraft.jzlib.ZInputStream.java
  */
 
+using System;
 using System.Diagnostics;
 using System.IO;
 
-namespace System.util.zlib {
+namespace Zlib {
 	internal class ZInputStream
 		: Stream
 	{

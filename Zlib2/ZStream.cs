@@ -33,7 +33,9 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * and contributors of zlib.
  */
 
-namespace System.util.zlib {
+using System;
+
+namespace Zlib {
 
     public sealed class ZStream{
 
@@ -76,7 +78,6 @@ namespace System.util.zlib {
         internal int data_type; // best guess about the data type: ascii or binary
 
         public long adler;
-        internal Adler32 _adler=new Adler32();
 
         public int inflateInit(){
             return inflateInit(DEF_WBITS);
@@ -195,7 +196,7 @@ namespace System.util.zlib {
             avail_in-=len;
 
             if(dstate.noheader==0) {
-                adler=_adler.adler32(adler, next_in, next_in_index, len);
+                adler=Utils.adler32(adler, next_in, next_in_index, len);
             }
             Array.Copy(next_in, next_in_index, buf, start, len);
             next_in_index  += len;
@@ -207,7 +208,6 @@ namespace System.util.zlib {
             next_in=null;
             next_out=null;
             msg=null;
-            _adler=null;
         }
     }
 }

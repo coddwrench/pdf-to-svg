@@ -33,7 +33,7 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * and contributors of zlib.
  */
 
-namespace System.util.zlib {
+namespace Zlib {
 
     internal sealed class JZlib{
         private const string _version="1.0.7";

@@ -33,7 +33,7 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * and contributors of zlib.
  */
 
-namespace System.util.zlib {
+namespace Zlib {
 
     internal sealed class StaticTree{
         private const int MAX_BITS=15;
