@@ -1,0 +1,45 @@
+﻿
+<style type="text/css">.form-group {
+                           position: relative;
+                           padding: 1rem;
+                           margin: 1rem -0.75rem 0;
+                           border: solid #dee2e6;
+                           border-width: 1px;
+                           border-radius: 0.25rem;
+                       }</style>
+@model PdfToSvgWebApplication.Models.PdfModel
+@{
+    ViewData["Title"] = @Model == null?"Upload File": @Model.FileName;
+}
+
+    @if (@Model == null)
+    {
+        <div class="form-group">
+
+            @using (Html.BeginForm("Upload", "Home", FormMethod.Post,
+                new {enctype = "multipart/form-data"}))
+            {
+                <div class="mb-3">
+                <input class="form-control" type="file" name="files" id="formFile" accept="application/pdf">
+                </div>
+                <div class="col-auto">
+                    <button class="btn btn-primary mb-3" type="submit">Submit</button>
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="pdf-content">
+            @foreach (var page in @Model.Pages)
+            {
+                <div class="page @(page.PageSize) @(page.Orientation)">
+                    <div class="canvas-wrapper">
+                        @Html.Raw(page.Value.ToString())
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+

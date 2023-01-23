@@ -1,0 +1,40 @@
+.pdf-content {
+  text-align: center;
+}
+.pdf-content * {
+  padding: 0;
+  margin: 0;
+}
+.pdf-content .page {
+  display: inline-block;
+  direction: ltr;
+  border: 1px solid #ccc;
+  margin-bottom: 1px;
+  position: relative;
+   background-color: #FFFFFF;
+}
+.pdf-content .page .canvas-wrapper {
+  height: 100%;
+  width: 100%;
+}
+.pdf-content .page.v.a4 {
+  height: 991.66666667px;
+  width: 1403.33333333px;
+}
+.pdf-content .page.h.a4 {
+  height: 1403.33333333px;
+  width: 991.66666667px;
+}
+.pdf-content .page .canvasWrapper {
+  overflow: hidden;
+}
+.pdf-content .page .textLayer {
+  line-height: 1;
+}
+.pdf-content .page .textLayer > span {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+}

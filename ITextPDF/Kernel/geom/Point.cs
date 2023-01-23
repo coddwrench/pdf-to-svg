@@ -21,6 +21,7 @@
 
 using System;
 using IText.IO.Util;
+using HashCode = IText.IO.Util.HashCode;
 
 namespace IText.Kernel.Geom {
     public class Point

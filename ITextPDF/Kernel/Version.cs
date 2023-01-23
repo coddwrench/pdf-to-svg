@@ -49,7 +49,6 @@ using System.Reflection;
 using IText.IO;
 using IText.IO.Util;
 using IText.Logger;
-using Versions.Attributes;
 
 namespace IText.Kernel {
     /// <summary>This class contains version information about iText.</summary>
@@ -333,38 +332,7 @@ namespace IText.Kernel {
         }
 
         private static Type GetClassFromLicenseKey(string classPartialName) {
-            string classFullName = null;
-
-            var kernelAssembly = typeof(Version).GetAssembly();
-            var keyVersionAttr = kernelAssembly.GetCustomAttribute(typeof(KeyVersionAttribute));
-            if (keyVersionAttr is KeyVersionAttribute) {
-                var keyVersion = ((KeyVersionAttribute)keyVersionAttr).KeyVersion;
-                var format = "{0}, Version={1}, Culture=neutral, PublicKeyToken=8354ae6d2174ddca";
-                classFullName = string.Format(format, classPartialName, keyVersion);
-            }
-
-            Type type = null;
-            if (classFullName != null) {
-                string fileLoadExceptionMessage = null;
-                try {
-                    type = Type.GetType(classFullName);
-                } catch (FileLoadException fileLoadException) {
-                    fileLoadExceptionMessage = fileLoadException.Message;
-                }
-
-                if (type == null) {
-                    var logger = LogManager.GetLogger(typeof(Version));
-                    try {
-                        type = Type.GetType(classPartialName);
-                    } catch {
-                        // ignore
-                    }
-                    if (type == null && fileLoadExceptionMessage != null) {
-                        logger.Error(fileLoadExceptionMessage);
-                    }
-                }
-            }
-            return type;
+            return null;
         }
 
         private static void CheckLicenseVersion(string coreVersionString, string licenseVersionString) {
