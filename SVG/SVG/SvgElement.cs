@@ -554,8 +554,12 @@ namespace Svg
                 if (attr.Property.Converter.CanConvertTo(typeof(string)) && 
                     (!attr.Attribute.InAttributeDictionary || _attributes.ContainsKey(attr.Attribute.Name)))
                 {
-                    object propertyValue = attr.Property.GetValue(this);
-                    string value = (string)attr.Property.Converter.ConvertTo(propertyValue, typeof(string));
+                    var propertyValue = attr.Property.GetValue(this);
+
+                    var value = propertyValue == null ? null : 
+                        attr.Property.Converter
+                            .ConvertTo(propertyValue, typeof(string))
+                            ?.ToString();
 
                     forceWrite = false;
                     writeStyle = (attr.Attribute.Name == "fill");
