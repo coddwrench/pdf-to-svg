@@ -1,4 +1,4 @@
-<img src="./data/icons/logo.svg">
+<img max-width="500px" src="./data/icons/logo.svg">
 
 ## PdfToSvg
 Library for converting pdf documents to svg. The core of the project is [itext7](https://github.com/itext/itext7-dotnet) from which the PDF creation functionality and other unnecessary functions have been removed. Also included the sourse SVG.NET and zlib.
