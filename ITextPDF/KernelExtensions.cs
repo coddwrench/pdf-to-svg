@@ -55,468 +55,417 @@ using IText.IO.Util.Collections;
 
 namespace IText
 {
-	internal static class KernelExtensions
-	{
-		public static string JSubstring(this string str, int beginIndex, int endIndex)
-		{
-			return str.Substring(beginIndex, endIndex - beginIndex);
-		}
-
-		public static string JSubstring(this StringBuilder sb, int beginIndex, int endIndex)
-		{
-			return sb.ToString(beginIndex, endIndex - beginIndex);
-		}
-
-		public static bool EqualsIgnoreCase(this string str, string anotherString)
-		{
-			return string.Equals(str, anotherString, StringComparison.OrdinalIgnoreCase);
-		}
-
-		public static void JReset(this MemoryStream stream)
-		{
-			stream.SetLength(0);
-		}
-
-		public static void Write(this Stream stream, int value)
-		{
-			stream.WriteByte((byte)value);
-		}
-
-		public static int Read(this Stream stream)
-		{
-			return stream.ReadByte();
-		}
-
-		public static int Read(this Stream stream, byte[] buffer)
-		{
-			var size = stream.Read(buffer, 0, buffer.Length);
-			return size == 0 ? -1 : size;
-		}
-
-		public static int JRead(this Stream stream, byte[] buffer, int offset, int count)
-		{
-			var result = stream.Read(buffer, offset, count);
-			return result == 0 ? -1 : result;
-		}
-
-		public static void Write(this Stream stream, byte[] buffer)
-		{
-			stream.Write(buffer, 0, buffer.Length);
-		}
-
-		public static byte[] GetBytes(this string str)
-		{
-			return Encoding.UTF8.GetBytes(str);
-		}
-
-		public static byte[] GetBytes(this string str, string encoding)
-		{
-			return EncodingUtil.GetEncoding(encoding).GetBytes(str);
-		}
-
-		public static byte[] GetBytes(this string str, Encoding encoding)
-		{
-			return encoding.GetBytes(str);
-		}
-
-		public static long Seek(this FileStream fs, long offset)
-		{
-			return fs.Seek(offset, SeekOrigin.Begin);
-		}
-
-		public static long Skip(this Stream s, long n)
-		{
-			s.Seek(n, SeekOrigin.Current);
-			return n;
-		}
-
-		public static List<T> SubList<T>(this IList<T> list, int fromIndex, int toIndex)
-		{
-			if (list is SingletonList<T>)
-			{
-				if (fromIndex == 0 && toIndex >= 1)
-				{
-					return new List<T>(list);
-				}
-
-				return new List<T>();
-			}
-			return ((List<T>)list).GetRange(fromIndex, toIndex - fromIndex);
-		}
-
-
-		public static void AddAll<T>(this IList<T> list, IEnumerable<T> c)
-		{
-			((List<T>)list).AddRange(c);
-		}
-
-		public static void AddAll<T>(this IList<T> list, int index, IList<T> c)
-		{
-			for (var i = c.Count - 1; i >= 0; i--)
-			{
-				list.Insert(index, c[i]);
-			}
-		}
-
-		public static void Add<T>(this IList<T> list, int index, T elem)
-		{
-			list.Insert(index, elem);
-		}
-
-		public static void AddAll<T>(this ICollection<T> c, IEnumerable<T> collectionToAdd)
-		{
-			foreach (var o in collectionToAdd)
-			{
-				c.Add(o);
-			}
-		}
-
-		public static void AddAll<TKey, TValue>(this IDictionary<TKey, TValue> c, IDictionary<TKey, TValue> collectionToAdd)
-		{
-			foreach (var pair in collectionToAdd)
-			{
-				c[pair.Key] = pair.Value;
-			}
-		}
-
-		public static void GetChars(this StringBuilder sb, int srcBegin, int srcEnd, char[] dst, int dstBegin)
-		{
-			sb.CopyTo(srcBegin, dst, dstBegin, srcEnd - srcBegin);
-		}
-
-		public static string[] Split(this string str, string regex)
-		{
-			return str.Split(str.ToCharArray());
-		}
-
-		public static bool Matches(this string str, string regex)
-		{
-			return Regex.IsMatch(str, regex);
-		}
-
-		public static T[] ToArray<T>(this ICollection<T> col, T[] toArray)
-		{
-			T[] r;
-			var colSize = col.Count;
-			if (colSize <= toArray.Length)
-			{
-				col.CopyTo(toArray, 0);
-				if (colSize != toArray.Length)
-				{
-					toArray[colSize] = default;
-				}
-				r = toArray;
-			}
-			else
-			{
-				r = new T[colSize];
-				col.CopyTo(r, 0);
-			}
-
-			return r;
-		}
-
-		public static T[] ToArray<T>(this ICollection<T> col)
-		{
-			var r = new T[col.Count];
-			col.CopyTo(r, 0);
-			return r;
-		}
-
-		public static void ReadFully(this BinaryReader input, byte[] b, int off, int len)
-		{
-			if (len < 0)
-			{
-				throw new IndexOutOfRangeException();
-			}
-			var n = 0;
-			while (n < len)
-			{
-				var count = input.Read(b, off + n, len - n);
-				if (count <= 0)
-				{
-					throw new EndOfStreamException();
-				}
-				n += count;
-			}
-		}
-
-		public static TValue JRemove<TKey, TValue>(this IDictionary<TKey, TValue> dictionary, TKey key)
-		{
-			TValue value;
-			dictionary.TryGetValue(key, out value);
-			dictionary.Remove(key);
-
-			return value;
-		}
-
-		public static T JRemoveAt<T>(this IList<T> list, int index)
-		{
-			var value = list[index];
-			list.RemoveAt(index);
-
-			return value;
-		}
-
-		public static bool RemoveAll<T>(this IList<T> list, ICollection<T> c)
-		{
-			return BatchRemove(list, c, false);
-		}
-
-		// Removes from this list all of its elements that are not contained in the specified collection.
-		public static bool RetainAll<T>(this IList<T> list, ICollection<T> c)
-		{
-			return BatchRemove(list, c, true);
-		}
-
-		private static bool BatchRemove<T>(IList<T> list, ICollection<T> c, bool complement)
-		{
-			var modified = false;
-			var j = 0;
-			for (var i = 0; i < list.Count; ++i)
-			{
-				if (c.Contains(list[i]) == complement)
-				{
-					list[j++] = list[i];
-				}
-			}
-			if (j != list.Count)
-			{
-				modified = true;
-				for (var i = list.Count - 1; i >= j; --i)
-				{
-					list.RemoveAt(i);
-				}
-			}
-			return modified;
-		}
-
-		public static bool RemoveAll<T>(this ICollection<T> toClean, ICollection<T> c)
-		{
-			var modified = false;
-			foreach (var element in c)
-			{
-				bool anythingToRemove;
-				do
-				{
-					anythingToRemove = toClean.Remove(element);
-					modified |= anythingToRemove;
-				} while (anythingToRemove);
-			}
-			return modified;
-		}
-
-		public static bool RetainAll<T>(this ICollection<T> toClean, ICollection<T> c)
-		{
-			IList<T> toRemove = new List<T>();
-			foreach (var element in toClean)
-			{
-				if (!c.Contains(element))
-				{
-					toRemove.Add(element);
-				}
-			}
-
-			return toClean.RemoveAll(toRemove);
-		}
-
-		public static T PollFirst<T>(this SortedSet<T> set)
-		{
-			var item = set.First();
-			set.Remove(item);
-
-			return item;
-		}
-
-		public static bool IsEmpty<T1, T2>(this ICollection<KeyValuePair<T1, T2>> collection)
-		{
-			return collection.Count == 0;
-		}
-
-		public static bool IsEmpty<T>(this ICollection<T> collection)
-		{
-			return collection.Count == 0;
-		}
-
-		public static bool IsEmpty<T>(this Stack<T> collection)
-		{
-			return collection.Count == 0;
-		}
-
-		public static void SetCharAt(this StringBuilder builder, int index, char ch)
-		{
-			builder[index] = ch;
-		}
-
-		public static float NextFloat(this Random random)
-		{
-			var mantissa = random.NextDouble();
-			var exponent = Math.Pow(2.0, random.Next(-126, 128));
-			if (mantissa < 0 || exponent < 0)
-			{
-				var a = 5;
-			}
-			var val = (float)(mantissa * exponent);
-			if (val < 0)
-			{
-				var b = 6;
-			}
-			return (float)(mantissa * exponent);
-		}
-
-		public static bool NextBoolean(this Random random)
-		{
-			return random.NextDouble() > 0.5;
-		}
-
-		public static TValue Get<TKey, TValue>(this IDictionary<TKey, TValue> col, TKey key)
-		{
-			var value = default(TValue);
-			if (key != null)
-			{
-				col.TryGetValue(key, out value);
-			}
-
-			return value;
-		}
-
-		public static TValue Put<TKey, TValue>(this IDictionary<TKey, TValue> col, TKey key, TValue value)
-		{
-			TValue oldVal = col.Get(key);
-			col[key] = value;
-			return oldVal;
-		}
-
-		public static object Get(this IDictionary col, object key)
-		{
-			object value = null;
-			if (key != null)
-			{
-				value = col[key];
-			}
-
-			return value;
-		}
-
-		public static void Put(this IDictionary col, object key, object value)
-		{
-			if (key != null)
-			{
-				col[key] = value;
-			}
-		}
-
-		public static bool Contains<TKey, TValue>(this IDictionary<TKey, TValue> dictionary, TKey key)
-		{
-			return dictionary.ContainsKey(key);
-		}
-
-		public static Stack<T> Clone<T>(this Stack<T> stack)
-		{
-			return new Stack<T>(new Stack<T>(stack)); // create stack twice to retain the original order
-		}
-
-		public static void Update(this object dgst, byte[] input)
-		{
-			throw new NotImplementedException();
-			//dgst.Update(input, 0, input.Length);
-		}
-
-		public static void Update(this object dgst, byte[] input, int offset, int len)
-		{
-
-			throw new NotImplementedException();
-			//dgst.BlockUpdate(input, offset, len);
-		}
-
-		public static byte[] Digest(this object dgst)
-		{
-			throw new NotImplementedException();
-
-			// var output = new byte[dgst.GetDigestSize()];
-			// dgst.DoFinal(output, 0);
-			//return output;
-		}
-
-		public static byte[] Digest(this object dgst, byte[] input)
-		{
-			dgst.Update(input);
-			return dgst.Digest();
-		}
-
-		public static bool CanExecute(this FileInfo fileInfo)
-		{
-			return fileInfo.Exists;
-		}
-
-		public static T PollFirst<T>(this LinkedList<T> list)
-		{
-			var result = list.First.Value;
-			list.RemoveFirst();
-			return result;
-		}
-
-		/// <summary>
-		/// IMPORTANT: USE THIS METHOD CAREFULLY.
-		/// This method serves as replacement for the java method MessageDigest#digest(byte[] buf, int offset, int len).
-		/// However for now, we simply omit len parameter, because it doesn't affect anything for all current usages
-		/// (there are two of them at the moment of the method addition which are in StandardHandlerUsingAes256 class).
-		/// This may be not true for future possible usages, so be aware.
-		/// </summary>
-		//public static void Digest(this IDigest dgst, byte[] buff, int offest, int len) {
-		//  throw new NotImplementedException();
-
-		//dgst.DoFinal(buff, offest);
-		//}
-
-#if !NETSTANDARD2_0
-		public static Attribute GetCustomAttribute(this Assembly assembly, Type attributeType)
-		{
-			var customAttributes = assembly.GetCustomAttributes(attributeType, false);
-			if (customAttributes.Length > 0 && customAttributes[0] is Attribute)
-			{
-				return customAttributes[0] as Attribute;
-			}
-
-			return null;
-		}
-#endif
-
-		public static Assembly GetAssembly(this Type type)
-		{
-#if !NETSTANDARD2_0
-			return type.Assembly;
-#else
-        return type.GetTypeInfo().Assembly;
-#endif
-		}
-
-#if NETSTANDARD2_0
-    public static MethodInfo GetMethod(this Type type, String methodName, Type[] parameterTypes) {
-        return type.GetTypeInfo().GetMethod(methodName, parameterTypes);
+    internal static class KernelExtensions
+    {
+        public static string JSubstring(this string str, int beginIndex, int endIndex)
+        {
+            return str.Substring(beginIndex, endIndex - beginIndex);
+        }
+
+        public static string JSubstring(this StringBuilder sb, int beginIndex, int endIndex)
+        {
+            return sb.ToString(beginIndex, endIndex - beginIndex);
+        }
+
+        public static bool EqualsIgnoreCase(this string str, string anotherString)
+        {
+            return string.Equals(str, anotherString, StringComparison.OrdinalIgnoreCase);
+        }
+
+        public static void JReset(this MemoryStream stream)
+        {
+            stream.SetLength(0);
+        }
+
+        public static void CustomWrite(this Stream stream, int value)
+        {
+            stream.WriteByte((byte) value);
+        }
+
+        public static int CustomRead(this Stream stream)
+        {
+            return stream.ReadByte();
+        }
+
+        public static int CustomRead(this Stream stream, byte[] buffer)
+        {
+            var size = stream.Read(buffer, 0, buffer.Length);
+            return size == 0 ? -1 : size;
+        }
+
+        public static int JRead(this Stream stream, byte[] buffer, int offset, int count)
+        {
+            var result = stream.Read(buffer, offset, count);
+            return result == 0 ? -1 : result;
+        }
+
+        public static void CustomWrite(this Stream stream, byte[] buffer)
+        {
+            stream.Write(buffer, 0, buffer.Length);
+        }
+
+        public static byte[] GetBytes(this string str)
+        {
+            return Encoding.UTF8.GetBytes(str);
+        }
+
+        public static byte[] GetBytes(this string str, string encoding)
+        {
+            return EncodingUtil.GetEncoding(encoding).GetBytes(str);
+        }
+
+        public static byte[] GetBytes(this string str, Encoding encoding)
+        {
+            return encoding.GetBytes(str);
+        }
+
+        public static long Seek(this FileStream fs, long offset)
+        {
+            return fs.Seek(offset, SeekOrigin.Begin);
+        }
+
+        public static long Skip(this Stream s, long n)
+        {
+            s.Seek(n, SeekOrigin.Current);
+            return n;
+        }
+
+        public static List<T> SubList<T>(this IList<T> list, int fromIndex, int toIndex)
+        {
+            if (list is SingletonList<T>)
+            {
+                if (fromIndex == 0 && toIndex >= 1)
+                {
+                    return new List<T>(list);
+                }
+
+                return new List<T>();
+            }
+
+            return ((List<T>) list).GetRange(fromIndex, toIndex - fromIndex);
+        }
+
+
+        public static void AddAll<T>(this IList<T> list, IEnumerable<T> c)
+        {
+            ((List<T>) list).AddRange(c);
+        }
+
+        public static void AddAll<T>(this IList<T> list, int index, IList<T> c)
+        {
+            for (var i = c.Count - 1; i >= 0; i--)
+            {
+                list.Insert(index, c[i]);
+            }
+        }
+
+        public static void Add<T>(this IList<T> list, int index, T elem)
+        {
+            list.Insert(index, elem);
+        }
+
+        public static void AddAll<T>(this ICollection<T> c, IEnumerable<T> collectionToAdd)
+        {
+            foreach (var o in collectionToAdd)
+            {
+                c.Add(o);
+            }
+        }
+
+        public static void AddAll<TKey, TValue>(this IDictionary<TKey, TValue> c,
+            IDictionary<TKey, TValue> collectionToAdd)
+        {
+            foreach (var pair in collectionToAdd)
+            {
+                c[pair.Key] = pair.Value;
+            }
+        }
+
+        public static void GetChars(this StringBuilder sb, int srcBegin, int srcEnd, char[] dst, int dstBegin)
+        {
+            sb.CopyTo(srcBegin, dst, dstBegin, srcEnd - srcBegin);
+        }
+
+        public static string[] Split(this string str, string regex)
+        {
+            return str.Split(str.ToCharArray());
+        }
+
+        public static bool Matches(this string str, string regex)
+        {
+            return Regex.IsMatch(str, regex);
+        }
+
+        public static T[] ToArray<T>(this ICollection<T> col, T[] toArray)
+        {
+            T[] r;
+            var colSize = col.Count;
+            if (colSize <= toArray.Length)
+            {
+                col.CopyTo(toArray, 0);
+                if (colSize != toArray.Length)
+                {
+                    toArray[colSize] = default;
+                }
+
+                r = toArray;
+            }
+            else
+            {
+                r = new T[colSize];
+                col.CopyTo(r, 0);
+            }
+
+            return r;
+        }
+
+        public static T[] ToArray<T>(this ICollection<T> col)
+        {
+            var r = new T[col.Count];
+            col.CopyTo(r, 0);
+            return r;
+        }
+
+        public static void ReadFully(this BinaryReader input, byte[] b, int off, int len)
+        {
+            if (len < 0)
+            {
+                throw new IndexOutOfRangeException();
+            }
+
+            var n = 0;
+            while (n < len)
+            {
+                var count = input.Read(b, off + n, len - n);
+                if (count <= 0)
+                {
+                    throw new EndOfStreamException();
+                }
+
+                n += count;
+            }
+        }
+
+        public static TValue JRemove<TKey, TValue>(this IDictionary<TKey, TValue> dictionary, TKey key)
+        {
+            TValue value;
+            dictionary.TryGetValue(key, out value);
+            dictionary.Remove(key);
+
+            return value;
+        }
+
+        public static T JRemoveAt<T>(this IList<T> list, int index)
+        {
+            var value = list[index];
+            list.RemoveAt(index);
+
+            return value;
+        }
+
+        public static bool RemoveAll<T>(this IList<T> list, ICollection<T> c)
+        {
+            return BatchRemove(list, c, false);
+        }
+
+        // Removes from this list all of its elements that are not contained in the specified collection.
+        public static bool RetainAll<T>(this IList<T> list, ICollection<T> c)
+        {
+            return BatchRemove(list, c, true);
+        }
+
+        private static bool BatchRemove<T>(IList<T> list, ICollection<T> c, bool complement)
+        {
+            var modified = false;
+            var j = 0;
+            for (var i = 0; i < list.Count; ++i)
+            {
+                if (c.Contains(list[i]) == complement)
+                {
+                    list[j++] = list[i];
+                }
+            }
+
+            if (j != list.Count)
+            {
+                modified = true;
+                for (var i = list.Count - 1; i >= j; --i)
+                {
+                    list.RemoveAt(i);
+                }
+            }
+
+            return modified;
+        }
+
+        public static bool RemoveAll<T>(this ICollection<T> toClean, ICollection<T> c)
+        {
+            var modified = false;
+            foreach (var element in c)
+            {
+                bool anythingToRemove;
+                do
+                {
+                    anythingToRemove = toClean.Remove(element);
+                    modified |= anythingToRemove;
+                } while (anythingToRemove);
+            }
+
+            return modified;
+        }
+
+        public static bool RetainAll<T>(this ICollection<T> toClean, ICollection<T> c)
+        {
+            IList<T> toRemove = new List<T>();
+            foreach (var element in toClean)
+            {
+                if (!c.Contains(element))
+                {
+                    toRemove.Add(element);
+                }
+            }
+
+            return toClean.RemoveAll(toRemove);
+        }
+
+        public static T PollFirst<T>(this SortedSet<T> set)
+        {
+            var item = set.First();
+            set.Remove(item);
+
+            return item;
+        }
+
+        public static bool IsEmpty<T1, T2>(this ICollection<KeyValuePair<T1, T2>> collection)
+        {
+            return collection.Count == 0;
+        }
+
+        public static bool IsEmpty<T>(this ICollection<T> collection)
+        {
+            return collection.Count == 0;
+        }
+
+        public static bool IsEmpty<T>(this Stack<T> collection)
+        {
+            return collection.Count == 0;
+        }
+
+        public static void SetCharAt(this StringBuilder builder, int index, char ch)
+        {
+            builder[index] = ch;
+        }
+
+        public static float NextFloat(this Random random)
+        {
+            var mantissa = random.NextDouble();
+            var exponent = Math.Pow(2.0, random.Next(-126, 128));
+            if (mantissa < 0 || exponent < 0)
+            {
+                var a = 5;
+            }
+
+            var val = (float) (mantissa * exponent);
+            if (val < 0)
+            {
+                var b = 6;
+            }
+
+            return (float) (mantissa * exponent);
+        }
+
+        public static bool NextBoolean(this Random random)
+        {
+            return random.NextDouble() > 0.5;
+        }
+
+        public static TValue Get<TKey, TValue>(this IDictionary<TKey, TValue> col, TKey key)
+        {
+            var value = default(TValue);
+            if (key != null)
+            {
+                col.TryGetValue(key, out value);
+            }
+
+            return value;
+        }
+
+        public static TValue Put<TKey, TValue>(this IDictionary<TKey, TValue> col, TKey key, TValue value)
+        {
+            TValue oldVal = col.Get(key);
+            col[key] = value;
+            return oldVal;
+        }
+
+        public static object Get(this IDictionary col, object key)
+        {
+            object value = null;
+            if (key != null)
+            {
+                value = col[key];
+            }
+
+            return value;
+        }
+
+        public static void Put(this IDictionary col, object key, object value)
+        {
+            if (key != null)
+            {
+                col[key] = value;
+            }
+        }
+
+        public static bool Contains<TKey, TValue>(this IDictionary<TKey, TValue> dictionary, TKey key)
+        {
+            return dictionary.ContainsKey(key);
+        }
+
+        public static Stack<T> Clone<T>(this Stack<T> stack)
+        {
+            return new Stack<T>(new Stack<T>(stack)); // create stack twice to retain the original order
+        }
+
+        public static void Update(this object dgst, byte[] input)
+        {
+            throw new NotImplementedException();
+            //dgst.Update(input, 0, input.Length);
+        }
+
+        public static void Update(this object dgst, byte[] input, int offset, int len)
+        {
+
+            throw new NotImplementedException();
+            //dgst.BlockUpdate(input, offset, len);
+        }
+
+        public static byte[] Digest(this object dgst)
+        {
+            throw new NotImplementedException();
+
+            // var output = new byte[dgst.GetDigestSize()];
+            // dgst.DoFinal(output, 0);
+            //return output;
+        }
+
+        public static byte[] Digest(this object dgst, byte[] input)
+        {
+            dgst.Update(input);
+            return dgst.Digest();
+        }
+
+        public static bool CanExecute(this FileInfo fileInfo)
+        {
+            return fileInfo.Exists;
+        }
+
+        public static T PollFirst<T>(this LinkedList<T> list)
+        {
+            var result = list.First.Value;
+            list.RemoveFirst();
+            return result;
+        }
+
+
     }
-
-    public static MethodInfo GetMethod(this Type type, String methodName) {
-        return type.GetTypeInfo().GetMethod(methodName);
-    }
-
-    public static ConstructorInfo GetConstructor(this Type type, Type[] parameterTypes) {
-        return type.GetTypeInfo().GetConstructor(parameterTypes);
-    }
-
-    public static bool IsInstanceOfType(this Type type, object objToCheck) {
-        return type.GetTypeInfo().IsInstanceOfType(objToCheck);
-    }
-
-    public static FieldInfo[] GetFields(this Type type, BindingFlags flags) {
-        return type.GetTypeInfo().GetFields(flags);
-    }
-
-    public static byte[] GetBuffer(this MemoryStream memoryStream) {
-        ArraySegment<byte> buf;
-        memoryStream.TryGetBuffer(out buf);
-        return buf.Array;
-    }
-#endif
-	}
 }

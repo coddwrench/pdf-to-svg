@@ -130,7 +130,7 @@ namespace IText.Kernel.Pdf.Filters {
         /// <param name="string">content to write to the uncompressed data</param>
         public virtual void WriteString(byte[] @string) {
             try {
-                uncompData.Write(@string);
+                uncompData.CustomWrite(@string);
             }
             catch (IOException e) {
                 throw new PdfException(PdfException.LzwDecoderException, e);

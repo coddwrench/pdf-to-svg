@@ -45,6 +45,8 @@ address: sales@itextpdf.com
 using System;
 using System.Globalization;
 using System.IO;
+using System.Reflection;
+using IText.IO;
 using IText.IO.Util;
 using IText.Logger;
 using Versions.Attributes;

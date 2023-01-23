@@ -93,7 +93,7 @@ namespace IText.Kernel.Pdf.Canvas.Wmf {
             try {
                 @is = UrlUtil.OpenStream(source);
                 var bytes = new byte[8];
-                @is.Read(bytes);
+                @is.CustomRead(bytes);
                 return bytes;
             }
             catch (IOException e) {

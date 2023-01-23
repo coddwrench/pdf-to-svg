@@ -349,7 +349,7 @@ namespace IText.Kernel.Pdf.Canvas.Parser.Util {
                         }
                         // probably some bytes were preserved so write them
                         baos.Write(EI, 0, found);
-                        baos.Write(ch);
+                        baos.CustomWrite(ch);
                         found = 0;
                     }
                 }

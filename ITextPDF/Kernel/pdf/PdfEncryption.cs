@@ -475,11 +475,11 @@ namespace IText.Kernel.Pdf {
                 var dec = securityHandler.GetDecryptor();
                 var b2 = dec.Update(b, 0, b.Length);
                 if (b2 != null) {
-                    ba.Write(b2);
+                    ba.CustomWrite(b2);
                 }
                 b2 = dec.Finish();
                 if (b2 != null) {
-                    ba.Write(b2);
+                    ba.CustomWrite(b2);
                 }
                 return ba.ToArray();
             }

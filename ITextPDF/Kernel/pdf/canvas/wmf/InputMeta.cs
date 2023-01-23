@@ -63,11 +63,11 @@ namespace IText.Kernel.Pdf.Canvas.Wmf {
         /// <returns>the next word or 0 if the end of the stream has been reached</returns>
         public virtual int ReadWord() {
             length += 2;
-            var k1 = @in.Read();
+            var k1 = @in.CustomRead();
             if (k1 < 0) {
                 return 0;
             }
-            return (k1 + (@in.Read() << 8)) & 0xffff;
+            return (k1 + (@in.CustomRead() << 8)) & 0xffff;
         }
 
         /// <summary>Read the next short from the InputStream.</summary>
@@ -84,20 +84,20 @@ namespace IText.Kernel.Pdf.Canvas.Wmf {
         /// <returns>the next int</returns>
         public virtual int ReadInt() {
             length += 4;
-            var k1 = @in.Read();
+            var k1 = @in.CustomRead();
             if (k1 < 0) {
                 return 0;
             }
-            var k2 = @in.Read() << 8;
-            var k3 = @in.Read() << 16;
-            return k1 + k2 + k3 + (@in.Read() << 24);
+            var k2 = @in.CustomRead() << 8;
+            var k3 = @in.CustomRead() << 16;
+            return k1 + k2 + k3 + (@in.CustomRead() << 24);
         }
 
         /// <summary>Read the next byte from the InputStream.</summary>
         /// <returns>the next byte</returns>
         public virtual int ReadByte() {
             ++length;
-            return @in.Read() & 0xff;
+            return @in.CustomRead() & 0xff;
         }
 
         /// <summary>Skips "len" amount of bytes from the InputStream.</summary>

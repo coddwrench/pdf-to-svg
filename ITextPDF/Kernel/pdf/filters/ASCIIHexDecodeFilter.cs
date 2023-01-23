@@ -86,12 +86,12 @@ namespace IText.Kernel.Pdf.Filters {
                     n1 = n;
                 }
                 else {
-                    @out.Write((byte)((n1 << 4) + n));
+                    @out.CustomWrite((byte)((n1 << 4) + n));
                 }
                 first = !first;
             }
             if (!first) {
-                @out.Write((byte)(n1 << 4));
+                @out.CustomWrite((byte)(n1 << 4));
             }
             return @out.ToArray();
         }

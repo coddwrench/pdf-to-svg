@@ -844,8 +844,8 @@ namespace IText.Kernel.Pdf.Canvas.Wmf {
                 imgIn = UrlUtil.OpenStream(image.GetUrl());
                 var @out = new MemoryStream();
                 var b = 0;
-                while ((b = imgIn.Read()) != -1) {
-                    @out.Write(b);
+                while ((b = imgIn.CustomRead()) != -1) {
+                    @out.CustomWrite(b);
                 }
                 imgIn.Dispose();
                 data = @out.ToArray();
@@ -890,7 +890,7 @@ namespace IText.Kernel.Pdf.Canvas.Wmf {
             WriteWord(os, 0);
             os.Write(data, 14, data.Length - 14);
             if ((data.Length & 1) == 1) {
-                os.Write(0);
+                os.CustomWrite(0);
             }
             WriteDWord(os, 3);
             WriteWord(os, 0);
@@ -902,8 +902,8 @@ namespace IText.Kernel.Pdf.Canvas.Wmf {
         /// <param name="os">outputstream to write the word to</param>
         /// <param name="v">value to be written</param>
         public static void WriteWord(Stream os, int v) {
-            os.Write(v & 0xff);
-            os.Write((int)(((uint)v) >> 8) & 0xff);
+            os.CustomWrite(v & 0xff);
+            os.CustomWrite((int)(((uint)v) >> 8) & 0xff);
         }
 
         /// <summary>Writes the specified value to the specified outputstream as a dword.</summary>

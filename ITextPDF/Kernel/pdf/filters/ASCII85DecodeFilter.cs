@@ -79,10 +79,10 @@ namespace IText.Kernel.Pdf.Filters {
                     continue;
                 }
                 if (ch == 'z' && state == 0) {
-                    @out.Write(0);
-                    @out.Write(0);
-                    @out.Write(0);
-                    @out.Write(0);
+                    @out.CustomWrite(0);
+                    @out.CustomWrite(0);
+                    @out.CustomWrite(0);
+                    @out.CustomWrite(0);
                     continue;
                 }
                 if (ch < '!' || ch > 'u') {
@@ -96,28 +96,28 @@ namespace IText.Kernel.Pdf.Filters {
                     for (var j = 0; j < 5; ++j) {
                         r = r * 85 + chn[j];
                     }
-                    @out.Write((byte)(r >> 24));
-                    @out.Write((byte)(r >> 16));
-                    @out.Write((byte)(r >> 8));
-                    @out.Write((byte)r);
+                    @out.CustomWrite((byte)(r >> 24));
+                    @out.CustomWrite((byte)(r >> 16));
+                    @out.CustomWrite((byte)(r >> 8));
+                    @out.CustomWrite((byte)r);
                 }
             }
             if (state == 2) {
                 var r = chn[0] * 85 * 85 * 85 * 85 + chn[1] * 85 * 85 * 85 + 85 * 85 * 85 + 85 * 85 + 85;
-                @out.Write((byte)(r >> 24));
+                @out.CustomWrite((byte)(r >> 24));
             }
             else {
                 if (state == 3) {
                     var r = chn[0] * 85 * 85 * 85 * 85 + chn[1] * 85 * 85 * 85 + chn[2] * 85 * 85 + 85 * 85 + 85;
-                    @out.Write((byte)(r >> 24));
-                    @out.Write((byte)(r >> 16));
+                    @out.CustomWrite((byte)(r >> 24));
+                    @out.CustomWrite((byte)(r >> 16));
                 }
                 else {
                     if (state == 4) {
                         var r = chn[0] * 85 * 85 * 85 * 85 + chn[1] * 85 * 85 * 85 + chn[2] * 85 * 85 + chn[3] * 85 + 85;
-                        @out.Write((byte)(r >> 24));
-                        @out.Write((byte)(r >> 16));
-                        @out.Write((byte)(r >> 8));
+                        @out.CustomWrite((byte)(r >> 24));
+                        @out.CustomWrite((byte)(r >> 16));
+                        @out.CustomWrite((byte)(r >> 8));
                     }
                 }
             }

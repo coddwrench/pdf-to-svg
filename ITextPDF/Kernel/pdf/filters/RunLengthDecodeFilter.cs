@@ -65,7 +65,7 @@ namespace IText.Kernel.Pdf.Filters {
                     // make dupcount copies of the next byte
                     i++;
                     for (var j = 0; j < 257 - (dupCount & 0xff); j++) {
-                        outputStream.Write(b[i]);
+                        outputStream.CustomWrite(b[i]);
                     }
                 }
             }

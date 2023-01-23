@@ -997,11 +997,11 @@ namespace IText.Kernel.Pdf
 					{
 						baos.SetMaxStreamSize(handler.GetMaxSizeOfSingleDecompressedPdfStream());
 					}
-					baos.Write(streamBytes);
+					baos.CustomWrite(streamBytes);
 					if (0 != streamBytes.Length && !TextUtil.IsWhiteSpace((char)streamBytes[streamBytes.Length -
 						 1]))
 					{
-						baos.Write('\n');
+						baos.CustomWrite('\n');
 					}
 				}
 				return baos.ToArray();

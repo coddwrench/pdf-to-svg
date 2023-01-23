@@ -316,7 +316,7 @@ namespace IText.Kernel.Pdf {
                     var beginStreamContent = GetCurrentPos();
                     var buf = new byte[4192];
                     while (true) {
-                        var n = pdfStream.GetInputStream().Read(buf);
+                        var n = pdfStream.GetInputStream().CustomRead(buf);
                         if (n <= 0) {
                             break;
                         }

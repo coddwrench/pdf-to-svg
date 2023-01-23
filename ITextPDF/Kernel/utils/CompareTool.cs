@@ -1406,8 +1406,8 @@ namespace IText.Kernel.Utils {
             int len1;
             int len2;
             for (; ; ) {
-                len1 = is1.Read(buffer1);
-                len2 = is2.Read(buffer2);
+                len1 = is1.CustomRead(buffer1);
+                len2 = is2.CustomRead(buffer2);
                 if (len1 != len2) {
                     return false;
                 }
