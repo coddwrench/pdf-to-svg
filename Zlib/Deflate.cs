@@ -34,6 +34,7 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 using System;
+using System.Threading;
 
 namespace Zlib
 {
@@ -41,6 +42,39 @@ namespace Zlib
     public enum CompressionMethod
     {
         Deflated = 8
+    }
+    public enum DeflateState
+    {
+        Unknown = -1,
+
+        // block not completed, need more input or more output
+        NeedMore = 0,
+
+        // block flush performed
+        BlockDone = 1,
+
+        // finish started, need only more output at next deflate
+        FinishStarted = 2,
+
+        // finish done, accept no more input or output
+        FinishDone = 3,
+    }
+
+    // The three kinds of block type
+    public enum DataType
+    {
+
+        Binary = 0,
+        Ascii = 1,
+        Unknown = 2
+    }
+
+    public enum ZlibStrategy
+    {
+
+        DefaultStrategy = 0,
+        Filtered = 1,
+        HuffmanOnly = 2
     }
 
     internal sealed class Deflate
@@ -96,25 +130,9 @@ namespace Zlib
             ConfigTable[9] = new Config(32, 258, 258, 4096, FunctionType.Slow);
         }
 
-
-        // block not completed, need more input or more output
-        private const int NeedMore = 0;
-
-        // block flush performed
-        private const int BlockDone = 1;
-
-        // finish started, need only more output at next deflate
-        private const int FinishStarted = 2;
-
-        // finish done, accept no more input or output
-        private const int FinishDone = 3;
-
         // preset dictionary flag in zlib header
         private const int PresetDict = 0x20;
 
-        private const int ZFiltered = 1;
-        private const int ZHuffmanOnly = 2;
-        private const int ZDefaultStrategy = 0;
 
         private const int InitState = 42;
         private const int BusyState = 113;
@@ -124,10 +142,6 @@ namespace Zlib
         private const int StaticTrees = 1;
         private const int DynTrees = 2;
 
-        // The three kinds of block type
-        private const int ZBinary = 0;
-        private const int ZAscii = 1;
-        private const int ZUnknown = 2;
 
         private const int BufSize = 8 * 2;
 
@@ -161,8 +175,8 @@ namespace Zlib
         internal int PendingBufSize; // size of pending_buf
         internal int PendingOut; // next pending byte to output to the stream
         internal int Pending; // nb of bytes in the pending buffer
-        internal int Noheader; // suppress zlib header and adler32
-        internal byte DataType; // UNKNOWN, BINARY or ASCII
+        internal bool Noheader; // suppress zlib header and adler32
+        internal DataType DataType; // UNKNOWN, BINARY or ASCII
         internal byte Method; // STORED (for zip only) or DEFLATED
         internal FlushLevel LastFlush; // value of flush param for previous deflate call
 
@@ -231,7 +245,7 @@ namespace Zlib
         // max_insert_length is used only for compression levels <= 3.
 
         internal int Level; // compression level (1..9)
-        internal int Strategy; // favor or force Huffman coding
+        internal ZlibStrategy Strategy; // favor or force Huffman coding
 
         // Use a faster search when the previous match is longer than this
         internal int GoodMatch;
@@ -814,7 +828,7 @@ namespace Zlib
                 n++;
             }
 
-            DataType = (byte) (binFreq > (asciiFreq >> 2) ? ZBinary : ZAscii);
+            DataType = (binFreq > (asciiFreq >> 2) ? DataType.Binary : DataType.Ascii);
         }
 
         // Flush the bit buffer, keeping at most 7 bits in it.
@@ -893,7 +907,7 @@ namespace Zlib
         // only for the level=0 compression option.
         // NOTE: this function should be optimized to avoid extra copying from
         // window to pending_buf.
-        internal int deflate_stored(FlushLevel flush)
+        private DeflateState deflate_stored(FlushLevel flush)
         {
             // Stored blocks are limited to 0xffff bytes, pending_buf is limited
             // to pending_buf_size, and each stored block has a 5 byte header:
@@ -913,7 +927,7 @@ namespace Zlib
                 if (Lookahead <= 1)
                 {
                     fill_window();
-                    if (Lookahead == 0 && flush == FlushLevel.NoFlush) return NeedMore;
+                    if (Lookahead == 0 && flush == FlushLevel.NoFlush) return DeflateState.NeedMore;
                     if (Lookahead == 0) break; // flush the current block
                 }
 
@@ -929,7 +943,7 @@ namespace Zlib
                     Strstart = maxStart;
 
                     flush_block_only(false);
-                    if (_stream.AvailOut == 0) return NeedMore;
+                    if (_stream.AvailOut == 0) return DeflateState.NeedMore;
 
                 }
 
@@ -938,15 +952,15 @@ namespace Zlib
                 if (Strstart - BlockStart >= WSize - MinLookahead)
                 {
                     flush_block_only(false);
-                    if (_stream.AvailOut == 0) return NeedMore;
+                    if (_stream.AvailOut == 0) return DeflateState.NeedMore;
                 }
             }
 
             flush_block_only(flush == FlushLevel.Finish);
             if (_stream.AvailOut == 0)
-                return (flush == FlushLevel.Finish) ? FinishStarted : NeedMore;
+                return (flush == FlushLevel.Finish) ? DeflateState.FinishStarted : DeflateState.NeedMore;
 
-            return flush == FlushLevel.Finish ? FinishDone : BlockDone;
+            return flush == FlushLevel.Finish ? DeflateState.FinishDone : DeflateState.BlockDone;
         }
 
         // Send a stored block
@@ -973,7 +987,7 @@ namespace Zlib
             if (Level > 0)
             {
                 // Check if the file is ascii or binary
-                if (DataType == ZUnknown) set_data_type();
+                if (DataType == DataType.Unknown) set_data_type();
 
                 // Construct the literal and distance trees
                 LDesc.build_tree(this);
@@ -1129,7 +1143,7 @@ namespace Zlib
         // This function does not perform lazy evaluation of matches and inserts
         // new strings in the dictionary only for unmatched strings or for short
         // matches. It is used only for the fast compression options.
-        internal int deflate_fast(FlushLevel flush)
+        private DeflateState deflate_fast(FlushLevel flush)
         {
             //    short hash_head = 0; // head of the hash chain
             var hashHead = 0; // head of the hash chain
@@ -1146,7 +1160,7 @@ namespace Zlib
                     fill_window();
                     if (Lookahead < MinLookahead && flush == FlushLevel.NoFlush)
                     {
-                        return NeedMore;
+                        return DeflateState.NeedMore;
                     }
 
                     if (Lookahead == 0) break; // flush the current block
@@ -1174,7 +1188,7 @@ namespace Zlib
                     // To simplify the code, we prevent matches with the string
                     // of window index 0 (in particular we have to avoid a match
                     // of the string with itself at the start of the input file).
-                    if (Strategy != ZHuffmanOnly)
+                    if (Strategy != ZlibStrategy.HuffmanOnly)
                     {
                         MatchLength = longest_match(hashHead);
                     }
@@ -1235,24 +1249,24 @@ namespace Zlib
                 {
 
                     flush_block_only(false);
-                    if (_stream.AvailOut == 0) return NeedMore;
+                    if (_stream.AvailOut == 0) return DeflateState.NeedMore;
                 }
             }
 
             flush_block_only(flush == FlushLevel.Finish);
             if (_stream.AvailOut == 0)
             {
-                if (flush == FlushLevel.Finish) return FinishStarted;
-                return NeedMore;
+                if (flush == FlushLevel.Finish) return DeflateState.FinishStarted;
+                return DeflateState.NeedMore;
             }
 
-            return flush == FlushLevel.Finish ? FinishDone : BlockDone;
+            return flush == FlushLevel.Finish ? DeflateState.FinishDone : DeflateState.BlockDone;
         }
 
         // Same as above, but achieves better compression. We use a lazy
         // evaluation for matches: a match is finally adopted only if there is
         // no better match at the next window position.
-        internal int deflate_slow(FlushLevel flush)
+        private DeflateState deflate_slow(FlushLevel flush)
         {
             //    short hash_head = 0;    // head of hash chain
             var hashHead = 0; // head of hash chain
@@ -1271,7 +1285,7 @@ namespace Zlib
                     fill_window();
                     if (Lookahead < MinLookahead && flush == FlushLevel.NoFlush)
                     {
-                        return NeedMore;
+                        return DeflateState.NeedMore;
                     }
 
                     if (Lookahead == 0) break; // flush the current block
@@ -1302,13 +1316,13 @@ namespace Zlib
                     // of window index 0 (in particular we have to avoid a match
                     // of the string with itself at the start of the input file).
 
-                    if (Strategy != ZHuffmanOnly)
+                    if (Strategy != ZlibStrategy.HuffmanOnly)
                     {
                         MatchLength = longest_match(hashHead);
                     }
                     // longest_match() sets match_start
 
-                    if (MatchLength <= 5 && (Strategy == ZFiltered ||
+                    if (MatchLength <= 5 && (Strategy == ZlibStrategy.Filtered ||
                                              (MatchLength == MinMatch &&
                                               Strstart - MatchStart > 4096)))
                     {
@@ -1356,7 +1370,7 @@ namespace Zlib
                     if (bflush)
                     {
                         flush_block_only(false);
-                        if (_stream.AvailOut == 0) return NeedMore;
+                        if (_stream.AvailOut == 0) return DeflateState.NeedMore;
                     }
                 }
                 else if (MatchAvailable != 0)
@@ -1375,7 +1389,7 @@ namespace Zlib
 
                     Strstart++;
                     Lookahead--;
-                    if (_stream.AvailOut == 0) return NeedMore;
+                    if (_stream.AvailOut == 0) return DeflateState.NeedMore;
                 }
                 else
                 {
@@ -1398,11 +1412,11 @@ namespace Zlib
 
             if (_stream.AvailOut == 0)
             {
-                if (flush == FlushLevel.Finish) return FinishStarted;
-                return NeedMore;
+                if (flush == FlushLevel.Finish) return DeflateState.FinishStarted;
+                return DeflateState.NeedMore;
             }
 
-            return flush == FlushLevel.Finish ? FinishDone : BlockDone;
+            return flush == FlushLevel.Finish ? DeflateState.FinishDone : DeflateState.BlockDone;
         }
 
         internal int longest_match(int curMatch)
@@ -1485,14 +1499,15 @@ namespace Zlib
             } while ((curMatch = (Prev[curMatch & wmask] & 0xffff)) > limit
                      && --chainLength != 0);
 
-            if (bestLen <= Lookahead) return bestLen;
+            if (bestLen <= Lookahead)
+                return bestLen;
             return Lookahead;
         }
 
         internal ZStreamState DeflateInit(ZStream strm, int level, int bits)
         {
             return DeflateInit2(strm, level, CompressionMethod.Deflated, bits, DefMemLevel,
-                ZDefaultStrategy);
+                ZlibStrategy.DefaultStrategy);
         }
 
         internal ZStreamState DeflateInit(ZStream strm, int level)
@@ -1500,10 +1515,12 @@ namespace Zlib
             return DeflateInit(strm, level, Utils.MaxWBits);
         }
 
-        internal ZStreamState DeflateInit2(ZStream strm, int level, CompressionMethod method, int windowBits,
-            int memLevel, int strategy)
+        internal ZStreamState DeflateInit2(ZStream strm, 
+            int level, CompressionMethod method, 
+            int windowBits,
+            int memLevel, ZlibStrategy strategy)
         {
-            var noheader = 0;
+            var noheader = false;
 
             strm.Msg = null;
 
@@ -1512,14 +1529,14 @@ namespace Zlib
             if (windowBits < 0)
             {
                 // undocumented feature: suppress zlib header
-                noheader = 1;
+                noheader = true;
                 windowBits = -windowBits;
             }
 
             if (memLevel < 1 || memLevel > MaxMemLevel ||
                 method != CompressionMethod.Deflated ||
                 windowBits < 9 || windowBits > 15 || level < 0 || level > 9 ||
-                strategy < 0 || strategy > ZHuffmanOnly)
+                strategy < 0 || strategy > ZlibStrategy.HuffmanOnly)
             {
                 return ZStreamState.StreamError;
             }
@@ -1564,17 +1581,12 @@ namespace Zlib
         {
             strm.TotalIn = strm.TotalOut = 0;
             strm.Msg = null; //
-            strm.DataType = ZUnknown;
+            strm.DataType = DataType.Unknown;
 
             Pending = 0;
             PendingOut = 0;
 
-            if (Noheader < 0)
-            {
-                Noheader = 0; // was set to -1 by deflate(..., Z_FINISH);
-            }
-
-            _status = (Noheader != 0) ? BusyState : InitState;
+            _status = (Noheader != false) ? BusyState : InitState;
             strm.Adler = Utils.Adler32(0, null, 0, 0);
 
             LastFlush = FlushLevel.NoFlush;
@@ -1601,7 +1613,7 @@ namespace Zlib
             return _status == BusyState ? ZStreamState.DataError : ZStreamState.Ok;
         }
 
-        internal ZStreamState DeflateParams(ZStream strm, int level, int strategy)
+        internal ZStreamState DeflateParams(ZStream strm, int level, ZlibStrategy strategy)
         {
             var err = ZStreamState.Ok;
 
@@ -1611,7 +1623,7 @@ namespace Zlib
             }
 
             if (level < 0 || level > 9 ||
-                strategy < 0 || strategy > ZHuffmanOnly)
+                strategy < 0 || strategy > ZlibStrategy.HuffmanOnly)
             {
                 return ZStreamState.StreamError;
             }
@@ -1762,7 +1774,7 @@ namespace Zlib
             if (strm.AvailIn != 0 || Lookahead != 0 ||
                 (flush != FlushLevel.NoFlush && _status != FinishState))
             {
-                var bstate = -1;
+                var bstate = DeflateState.Unknown;
                 switch (ConfigTable[Level].Func)
                 {
                     case FunctionType.Stored:
@@ -1776,12 +1788,12 @@ namespace Zlib
                         break;
                 }
 
-                if (bstate == FinishStarted || bstate == FinishDone)
+                if (bstate == DeflateState.FinishStarted || bstate == DeflateState.FinishDone)
                 {
                     _status = FinishState;
                 }
 
-                if (bstate == NeedMore || bstate == FinishStarted)
+                if (bstate == DeflateState.NeedMore || bstate == DeflateState.FinishStarted)
                 {
                     if (strm.AvailOut == 0)
                     {
@@ -1797,7 +1809,7 @@ namespace Zlib
                     // one empty block.
                 }
 
-                if (bstate == BlockDone)
+                if (bstate == DeflateState.BlockDone)
                 {
                     if (flush == FlushLevel.PartialFlush)
                     {
@@ -1827,7 +1839,8 @@ namespace Zlib
             }
 
             if (flush != FlushLevel.Finish) return ZStreamState.Ok;
-            if (Noheader != 0) return ZStreamState.StreamEnd;
+            if (Noheader != false) 
+                return ZStreamState.StreamEnd;
 
             // Write the zlib trailer (adler32)
             PutShortMsb((int) (strm.Adler >> 16));
@@ -1836,7 +1849,7 @@ namespace Zlib
 
             // If avail_out is zero, the application will call deflate again
             // to flush the rest.
-            Noheader = -1; // write the trailer only once!
+            //Noheader = -1; // write the trailer only once!
             return Pending != 0 ? ZStreamState.Ok : ZStreamState.StreamEnd;
         }
     }

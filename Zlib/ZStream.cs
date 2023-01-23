@@ -57,7 +57,7 @@ namespace Zlib
         internal Deflate DeflateState;
         internal Inflate InflateState;
 
-        internal int DataType; // best guess about the data type: ascii or binary
+        internal DataType DataType; // best guess about the data type: ascii or binary
 
         public long Adler;
 
@@ -150,7 +150,7 @@ namespace Zlib
             return ret;
         }
 
-        public ZStreamState DeflateParams(int level, int strategy)
+        public ZStreamState DeflateParams(int level, ZlibStrategy strategy)
         {
             if (DeflateState == null) return  ZStreamState.StreamError;
             return DeflateState.DeflateParams(this, level, strategy);
@@ -202,7 +202,7 @@ namespace Zlib
 
             AvailIn -= len;
 
-            if (DeflateState.Noheader == 0)
+            if (DeflateState.Noheader == false)
             {
                 Adler = Utils.Adler32(Adler, NextIn, NextInIndex, len);
             }

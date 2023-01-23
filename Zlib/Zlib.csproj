@@ -42,7 +42,6 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Adler32.cs" />
     <Compile Include="Deflate.cs" />
     <Compile Include="InfBlocks.cs" />
     <Compile Include="InfCodes.cs" />

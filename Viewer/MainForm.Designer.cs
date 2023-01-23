@@ -41,7 +41,7 @@ namespace Viewer2
 			// 
 			this.Browser.ActivateBrowserOnCreation = false;
 			this.Browser.Dock = System.Windows.Forms.DockStyle.Fill;
-			this.Browser.Location = new System.Drawing.Point(0, 24);
+			this.Browser.Location = new System.Drawing.Point(0, 0);
 			this.Browser.Name = "Browser";
 			this.Browser.Size = new System.Drawing.Size(800, 426);
 			this.Browser.TabIndex = 0;
