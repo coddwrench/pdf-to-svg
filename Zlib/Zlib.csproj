@@ -43,6 +43,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Deflate.cs" />
+    <Compile Include="FlushLevel.cs" />
     <Compile Include="InfBlocks.cs" />
     <Compile Include="InfCodes.cs" />
     <Compile Include="Inflate.cs" />
@@ -51,11 +52,13 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="StaticTree.cs" />
     <Compile Include="Tree.cs" />
+    <Compile Include="Utils.cs" />
     <Compile Include="ZDeflaterOutputStream.cs" />
     <Compile Include="ZInflaterInputStream.cs" />
     <Compile Include="ZInputStream.cs" />
     <Compile Include="ZOutputStream.cs" />
     <Compile Include="ZStream.cs" />
+    <Compile Include="ZStreamState.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
