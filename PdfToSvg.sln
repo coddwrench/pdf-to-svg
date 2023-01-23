@@ -3,17 +3,19 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.3.32804.467
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PdfToSvg", "PdfToSvg.csproj", "{9D00D9C4-2A9C-4A04-B3AB-975F67433E40}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PdfToSvgConsoleApp", "PdfToSvg\PdfToSvgConsoleApp.csproj", "{9D00D9C4-2A9C-4A04-B3AB-975F67433E40}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Zlib", "..\Zlib\Zlib.csproj", "{AE4994A5-37F7-46CA-A61E-FD7C739CD72D}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Zlib", "Zlib\Zlib.csproj", "{AE4994A5-37F7-46CA-A61E-FD7C739CD72D}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ITextPdf2SVG", "..\ITextPdf2SVG\ITextPdf2SVG.csproj", "{CAD34AC1-F0C6-40CC-8D62-F510BEBB9011}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ITextPdf2SVG", "ITextPdf2SVG\ITextPdf2SVG.csproj", "{CAD34AC1-F0C6-40CC-8D62-F510BEBB9011}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ITextPDF", "..\ITextPDF\ITextPDF.csproj", "{A0A285CC-8172-4C4C-A586-75AC04AF5A56}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ITextPDF", "ITextPDF\ITextPDF.csproj", "{A0A285CC-8172-4C4C-A586-75AC04AF5A56}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SVG", "..\SVG\SVG.csproj", "{8AD98E91-31C0-4F11-BC00-79F139C4EF13}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SVG", "SVG\SVG.csproj", "{8AD98E91-31C0-4F11-BC00-79F139C4EF13}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PdfToSvgWebApplication", "..\PdfToSvgWebApplication\PdfToSvgWebApplication.csproj", "{BC965B40-D90D-4038-BB69-DD475EC1F53F}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PdfToSvgWebApp", "PdfToSvgWebApplication\PdfToSvgWebApp.csproj", "{BC965B40-D90D-4038-BB69-DD475EC1F53F}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Examples", "Examples", "{0C59827D-463E-4BB2-9D45-637C9A4DF5BC}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -48,6 +50,10 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{9D00D9C4-2A9C-4A04-B3AB-975F67433E40} = {0C59827D-463E-4BB2-9D45-637C9A4DF5BC}
+		{BC965B40-D90D-4038-BB69-DD475EC1F53F} = {0C59827D-463E-4BB2-9D45-637C9A4DF5BC}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {02C0418A-54A9-458A-8253-0760FAE20B5D}

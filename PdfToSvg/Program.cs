@@ -2,7 +2,6 @@
 using IText.Kernel.Pdf;
 using RSB.ITextPDF.Pdf2Svg;
 
-
 var fileInput = @"C:";
 var dirOutput = @"C:";
 
@@ -23,5 +22,4 @@ using (var d = new PdfDocument(r))
             svg.Write(output);
         }
     }
-
 }
