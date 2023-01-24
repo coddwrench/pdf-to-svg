@@ -415,7 +415,7 @@ namespace  IText.IO.Font {
                 var unicode = AdobeGlyphList.NameToUnicode(N);
                 var glyph = new Glyph(C, WX, unicode, B);
                 if (C >= 0) {
-                    ÑodeToGlyph.Put(C, glyph);
+                    Ð¡odeToGlyph.Put(C, glyph);
                 }
                 if (unicode != -1) {
                     UnicodeToGlyph.Put(unicode, glyph);
