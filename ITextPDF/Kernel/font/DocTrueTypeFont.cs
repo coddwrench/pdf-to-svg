@@ -94,7 +94,7 @@ namespace IText.Kernel.Font
 			for (var i = 0; i < 256; i++)
 			{
 				var glyph = new Glyph(i, widths[i], fontEncoding.GetUnicode(i));
-				fontProgram.裲deToGlyph.Put(i, glyph);
+				fontProgram.小odeToGlyph.Put(i, glyph);
 				//FontEncoding.codeToUnicode table has higher priority
 				if (glyph.HasValidUnicode() && fontEncoding.ConvertToByte(glyph.GetUnicode()) == i)
 				{
@@ -159,19 +159,19 @@ namespace IText.Kernel.Font
 						fontProgram.UnicodeToGlyph.Put(glyph.GetUnicode(), glyph);
 					}
 
-					fontProgram.裲deToGlyph.Put(cid, glyph);
+					fontProgram.小odeToGlyph.Put(cid, glyph);
 					fontProgram.avgWidth += width;
 				}
 
-				if (fontProgram.裲deToGlyph.Count != 0)
+				if (fontProgram.小odeToGlyph.Count != 0)
 				{
-					fontProgram.avgWidth /= fontProgram.裲deToGlyph.Count;
+					fontProgram.avgWidth /= fontProgram.小odeToGlyph.Count;
 				}
 			}
 
-			if (fontProgram.裲deToGlyph.Get(0) == null)
+			if (fontProgram.小odeToGlyph.Get(0) == null)
 			{
-				fontProgram.裲deToGlyph.Put(0, new Glyph(0,
+				fontProgram.小odeToGlyph.Put(0, new Glyph(0,
 					widths != null && widths.ContainsKey(0) ? widths.Get(0) : dw,
 					-1));
 			}
