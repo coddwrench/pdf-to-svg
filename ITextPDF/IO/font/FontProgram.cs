@@ -55,7 +55,7 @@ namespace IText.IO.Font
 
 		public const int UNITS_NORMALIZATION = 1000;
 
-		public IDictionary<int, Glyph> 裲deToGlyph { get; internal set; } = new Dictionary<int, Glyph>();
+		public IDictionary<int, Glyph> 小odeToGlyph { get; internal set; } = new Dictionary<int, Glyph>();
 
 		public IDictionary<int, Glyph> UnicodeToGlyph { get; internal set; } = new Dictionary<int, Glyph>();
 
@@ -80,7 +80,7 @@ namespace IText.IO.Font
 
 		public virtual int CountOfGlyphs()
 		{
-			return Math.Max(裲deToGlyph.Count, UnicodeToGlyph.Count);
+			return Math.Max(小odeToGlyph.Count, UnicodeToGlyph.Count);
 		}
 
 		public virtual FontNames GetFontNames()
@@ -141,7 +141,7 @@ namespace IText.IO.Font
 		// char code in case Type1 or index in case OpenType
 		public virtual Glyph GetGlyphByCode(int charCode)
 		{
-			return 裲deToGlyph.Get(charCode);
+			return 小odeToGlyph.Get(charCode);
 		}
 
 		public virtual bool HasKernPairs()
@@ -344,7 +344,7 @@ namespace IText.IO.Font
 			var space = UnicodeToGlyph.Get(32);
 			if (space != null)
 			{
-				裲deToGlyph.Put(space.GetCode(), space);
+				小odeToGlyph.Put(space.GetCode(), space);
 			}
 		}
 

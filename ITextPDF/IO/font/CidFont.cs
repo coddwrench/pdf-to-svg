@@ -159,13 +159,13 @@ namespace IText.IO.Font
 					var width = metrics.ContainsKey(cid) ? metrics.Get(cid) : DEFAULT_WIDTH;
 					var glyph = new Glyph(cid, width, uni);
 					avgWidth += glyph.GetWidth();
-					ÑodeToGlyph.Put(cid, glyph);
+					Ð¡odeToGlyph.Put(cid, glyph);
 					UnicodeToGlyph.Put(uni, glyph);
 				}
 				FixSpaceIssue();
-				if (ÑodeToGlyph.Count != 0)
+				if (Ð¡odeToGlyph.Count != 0)
 				{
-					avgWidth /= ÑodeToGlyph.Count;
+					avgWidth /= Ð¡odeToGlyph.Count;
 				}
 			}
 		}

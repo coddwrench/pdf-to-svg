@@ -54,26 +54,26 @@ using IOException = System.IO.IOException;
 
 namespace IText.Kernel.Pdf {
     public class PdfOutputStream : OutputStream<PdfOutputStream> {
-        private static readonly byte[] stream = ByteUtils.GetIsoBytes("stream\n");
+        private static readonly byte[] Stream = ByteUtils.GetIsoBytes("stream\n");
 
-        private static readonly byte[] endstream = ByteUtils.GetIsoBytes("\nendstream");
+        private static readonly byte[] Endstream = ByteUtils.GetIsoBytes("\nendstream");
 
-        private static readonly byte[] openDict = ByteUtils.GetIsoBytes("<<");
+        private static readonly byte[] OpenDict = ByteUtils.GetIsoBytes("<<");
 
-        private static readonly byte[] closeDict = ByteUtils.GetIsoBytes(">>");
+        private static readonly byte[] CloseDict = ByteUtils.GetIsoBytes(">>");
 
-        private static readonly byte[] endIndirect = ByteUtils.GetIsoBytes(" R");
+        private static readonly byte[] EndIndirect = ByteUtils.GetIsoBytes(" R");
 
-        private static readonly byte[] endIndirectWithZeroGenNr = ByteUtils.GetIsoBytes(" 0 R");
+        private static readonly byte[] EndIndirectWithZeroGenNr = ByteUtils.GetIsoBytes(" 0 R");
 
         // For internal usage only
-        private byte[] duplicateContentBuffer = null;
+        private byte[] _duplicateContentBuffer = null;
 
         /// <summary>Document associated with PdfOutputStream.</summary>
-        protected internal PdfDocument document = null;
+        protected internal PdfDocument Document = null;
 
         /// <summary>Contains the business logic for cryptography.</summary>
-        protected internal PdfEncryption crypto;
+        protected internal PdfEncryption Crypto;
 
         /// <summary>Create a pdfOutputSteam writing to the passed OutputStream.</summary>
         /// <param name="outputStream">Outputstream to write to.</param>
@@ -85,8 +85,8 @@ namespace IText.Kernel.Pdf {
         /// <param name="pdfObject">PdfObject to write</param>
         /// <returns>this PdfOutPutStream</returns>
         public virtual PdfOutputStream Write(PdfObject pdfObject) {
-            if (pdfObject.CheckState(PdfObject.MUST_BE_INDIRECT) && document != null) {
-                pdfObject.MakeIndirect(document);
+            if (pdfObject.CheckState(PdfObject.MUST_BE_INDIRECT) && Document != null) {
+                pdfObject.MakeIndirect(Document);
                 pdfObject = pdfObject.GetIndirectReference();
             }
             if (pdfObject.CheckState(PdfObject.READ_ONLY)) {
@@ -179,7 +179,7 @@ namespace IText.Kernel.Pdf {
         }
 
         private void Write(PdfDictionary pdfDictionary) {
-            WriteBytes(openDict);
+            WriteBytes(OpenDict);
             foreach (var key in pdfDictionary.KeySet()) {
                 var isAlreadyWriteSpace = false;
                 Write(key);
@@ -207,11 +207,11 @@ namespace IText.Kernel.Pdf {
                     Write(value);
                 }
             }
-            WriteBytes(closeDict);
+            WriteBytes(CloseDict);
         }
 
         private void Write(PdfIndirectReference indirectReference) {
-            if (document != null && !indirectReference.GetDocument().Equals(document)) {
+            if (Document != null && !indirectReference.GetDocument().Equals(Document)) {
                 throw new PdfException(PdfException.PdfIndirectObjectBelongsToOtherPdfDocument);
             }
             if (indirectReference.IsFree()) {
@@ -228,11 +228,11 @@ namespace IText.Kernel.Pdf {
                 }
                 else {
                     if (indirectReference.GetGenNumber() == 0) {
-                        WriteInteger(indirectReference.GetObjNumber()).WriteBytes(endIndirectWithZeroGenNr);
+                        WriteInteger(indirectReference.GetObjNumber()).WriteBytes(EndIndirectWithZeroGenNr);
                     }
                     else {
                         WriteInteger(indirectReference.GetObjNumber()).WriteSpace().WriteInteger(indirectReference.GetGenNumber())
-                            .WriteBytes(endIndirect);
+                            .WriteBytes(EndIndirect);
                     }
                 }
             }
@@ -248,7 +248,7 @@ namespace IText.Kernel.Pdf {
         }
 
         private void Write(PdfString pdfString) {
-            pdfString.Encrypt(crypto);
+            pdfString.Encrypt(Crypto);
             if (pdfString.IsHexWriting()) {
                 WriteByte('<');
                 WriteBytes(pdfString.GetInternalContent());
@@ -293,7 +293,7 @@ namespace IText.Kernel.Pdf {
             try {
                 var userDefinedCompression = pdfStream.GetCompressionLevel() != CompressionConstants.UNDEFINED_COMPRESSION;
                 if (!userDefinedCompression) {
-                    var defaultCompressionLevel = document != null ? document.GetWriter().GetCompressionLevel() : CompressionConstants
+                    var defaultCompressionLevel = Document != null ? Document.GetWriter().GetCompressionLevel() : CompressionConstants
                         .DEFAULT_COMPRESSION;
                     pdfStream.SetCompressionLevel(defaultCompressionLevel);
                 }
@@ -303,16 +303,16 @@ namespace IText.Kernel.Pdf {
                     Stream fout = this;
                     DeflaterOutputStream def = null;
                     OutputStreamEncryption ose = null;
-                    if (crypto != null && (!crypto.IsEmbeddedFilesOnly() || document.DoesStreamBelongToEmbeddedFile(pdfStream)
+                    if (Crypto != null && (!Crypto.IsEmbeddedFilesOnly() || Document.DoesStreamBelongToEmbeddedFile(pdfStream)
                         )) {
-                        fout = ose = crypto.GetEncryptionStream(fout);
+                        fout = ose = Crypto.GetEncryptionStream(fout);
                     }
                     if (toCompress && (allowCompression || userDefinedCompression)) {
                         UpdateCompressionFilter(pdfStream);
                         fout = def = new DeflaterOutputStream(fout, pdfStream.GetCompressionLevel(), 0x8000);
                     }
                     Write((PdfDictionary)pdfStream);
-                    WriteBytes(stream);
+                    WriteBytes(Stream);
                     var beginStreamContent = GetCurrentPos();
                     var buf = new byte[4192];
                     while (true) {
@@ -331,7 +331,7 @@ namespace IText.Kernel.Pdf {
                     var length = pdfStream.GetAsNumber(PdfName.Length);
                     length.SetValue((int)(GetCurrentPos() - beginStreamContent));
                     pdfStream.UpdateLength(length.IntValue());
-                    WriteBytes(endstream);
+                    WriteBytes(Endstream);
                 }
                 else {
                     //When document is opened in stamping mode the output stream can be uninitialized.
@@ -379,7 +379,7 @@ namespace IText.Kernel.Pdf {
                         }
                         if (CheckEncryption(pdfStream)) {
                             var encodedStream = new ByteArrayOutputStream();
-                            var ose = crypto.GetEncryptionStream(encodedStream);
+                            var ose = Crypto.GetEncryptionStream(encodedStream);
                             byteArrayStream.WriteTo(ose);
                             ose.Finish();
                             byteArrayStream = encodedStream;
@@ -391,10 +391,10 @@ namespace IText.Kernel.Pdf {
                     pdfStream.Put(PdfName.Length, new PdfNumber(byteArrayStream.Length));
                     pdfStream.UpdateLength((int)byteArrayStream.Length);
                     Write((PdfDictionary)pdfStream);
-                    WriteBytes(stream);
+                    WriteBytes(Stream);
                     byteArrayStream.WriteTo(this);
                     byteArrayStream.Dispose();
-                    WriteBytes(endstream);
+                    WriteBytes(Endstream);
                 }
             }
             catch (IOException e) {
@@ -404,7 +404,7 @@ namespace IText.Kernel.Pdf {
 
         protected internal virtual bool CheckEncryption(PdfStream pdfStream)
         {
-	        if (crypto == null || (crypto.IsEmbeddedFilesOnly() && !document.DoesStreamBelongToEmbeddedFile(pdfStream)
+	        if (Crypto == null || (Crypto.IsEmbeddedFilesOnly() && !Document.DoesStreamBelongToEmbeddedFile(pdfStream)
                 )) {
                 return false;
             }

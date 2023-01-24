@@ -176,7 +176,7 @@ namespace IText.Kernel.Pdf {
                 return null;
             }
             if (objectStream == null) {
-                objectStream = new PdfObjectStream(document);
+                objectStream = new PdfObjectStream(Document);
             }
             else {
                 if (objectStream.GetSize() == PdfObjectStream.MAX_OBJ_STREAM_SIZE) {
@@ -190,13 +190,13 @@ namespace IText.Kernel.Pdf {
         protected internal virtual void InitCryptoIfSpecified(PdfVersion version) {
             var encryptProps = properties.encryptionProperties;
             if (properties.IsStandardEncryptionUsed()) {
-                crypto = new PdfEncryption(encryptProps.userPassword, encryptProps.ownerPassword, encryptProps.standardEncryptPermissions
-                    , encryptProps.encryptionAlgorithm, ByteUtils.GetIsoBytes(document.GetOriginalDocumentId().GetValue
+                Crypto = new PdfEncryption(encryptProps.userPassword, encryptProps.ownerPassword, encryptProps.standardEncryptPermissions
+                    , encryptProps.encryptionAlgorithm, ByteUtils.GetIsoBytes(Document.GetOriginalDocumentId().GetValue
                     ()), version);
             }
             else {
                 if (properties.IsPublicKeyEncryptionUsed()) {
-                    crypto = new PdfEncryption(encryptProps.publicCertificates, encryptProps.publicKeyEncryptPermissions, encryptProps
+                    Crypto = new PdfEncryption(encryptProps.publicCertificates, encryptProps.publicKeyEncryptPermissions, encryptProps
                         .encryptionAlgorithm, version);
                 }
             }
@@ -295,8 +295,8 @@ namespace IText.Kernel.Pdf {
         /// <summary>Writes object to body of PDF document.</summary>
         /// <param name="pdfObj">object to write.</param>
         protected internal virtual void WriteToBody(PdfObject pdfObj) {
-            if (crypto != null) {
-                crypto.SetHashKeyForNextObject(pdfObj.GetIndirectReference().GetObjNumber(), pdfObj.GetIndirectReference()
+            if (Crypto != null) {
+                Crypto.SetHashKeyForNextObject(pdfObj.GetIndirectReference().GetObjNumber(), pdfObj.GetIndirectReference()
                     .GetGenNumber());
             }
             WriteInteger(pdfObj.GetIndirectReference().GetObjNumber()).WriteSpace().WriteInteger(pdfObj.GetIndirectReference
@@ -307,7 +307,7 @@ namespace IText.Kernel.Pdf {
 
         /// <summary>Writes PDF header.</summary>
         protected internal virtual void WriteHeader() {
-            WriteByte('%').WriteString(document.GetPdfVersion().ToString()).WriteString("\n%\u00e2\u00e3\u00cf\u00d3\n"
+            WriteByte('%').WriteString(Document.GetPdfVersion().ToString()).WriteString("\n%\u00e2\u00e3\u00cf\u00d3\n"
                 );
         }
 
@@ -321,7 +321,7 @@ namespace IText.Kernel.Pdf {
         /// automatically.
         /// </param>
         protected internal virtual void FlushWaitingObjects(ICollection<PdfIndirectReference> forbiddenToFlush) {
-            var xref = document.GetXref();
+            var xref = Document.GetXref();
             var needFlush = true;
             while (needFlush) {
                 needFlush = false;
@@ -355,7 +355,7 @@ namespace IText.Kernel.Pdf {
         /// </param>
         protected internal virtual void FlushModifiedWaitingObjects(ICollection<PdfIndirectReference> forbiddenToFlush
             ) {
-            var xref = document.GetXref();
+            var xref = Document.GetXref();
             for (var i = 1; i < xref.Size(); i++) {
                 var indirectReference = xref.Get(i);
                 if (null != indirectReference && !indirectReference.IsFree() && !forbiddenToFlush.Contains(indirectReference

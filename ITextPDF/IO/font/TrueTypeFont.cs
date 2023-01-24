@@ -221,7 +221,7 @@ namespace  IText.IO.Font {
         protected internal virtual void ReadGsubTable() {
             var gsub = fontParser.tables.Get("GSUB");
             if (gsub != null) {
-                gsubTable = new GlyphSubstitutionTableReader(fontParser.raf, gsub[0], gdefTable, 裲deToGlyph, fontMetrics.
+                gsubTable = new GlyphSubstitutionTableReader(fontParser.raf, gsub[0], gdefTable, 小odeToGlyph, fontMetrics.
                     GetUnitsPerEm());
             }
         }
@@ -229,7 +229,7 @@ namespace  IText.IO.Font {
         protected internal virtual void ReadGposTable() {
             var gpos = fontParser.tables.Get("GPOS");
             if (gpos != null) {
-                gposTable = new GlyphPositioningTableReader(fontParser.raf, gpos[0], gdefTable, 裲deToGlyph, fontMetrics.GetUnitsPerEm
+                gposTable = new GlyphPositioningTableReader(fontParser.raf, gpos[0], gdefTable, 小odeToGlyph, fontMetrics.GetUnitsPerEm
                     ());
             }
         }
@@ -288,7 +288,7 @@ namespace  IText.IO.Font {
             var glyphWidths = fontParser.GetGlyphWidthsByIndex();
             var numOfGlyphs = fontMetrics.GetNumberOfGlyphs();
             UnicodeToGlyph = new LinkedDictionary<int, Glyph>(cmap.Count);
-            裲deToGlyph = new LinkedDictionary<int, Glyph>(numOfGlyphs);
+            小odeToGlyph = new LinkedDictionary<int, Glyph>(numOfGlyphs);
             avgWidth = 0;
             foreach (var charCode in cmap.Keys) {
                 var index = cmap.Get(charCode)[0];
@@ -302,22 +302,22 @@ namespace  IText.IO.Font {
                 UnicodeToGlyph.Put(charCode, glyph);
                 // This is done on purpose to keep the mapping to glyphs with smaller unicode values, in contrast with
                 // larger values which often represent different forms of other characters.
-                if (!裲deToGlyph.ContainsKey(index)) {
-                    裲deToGlyph.Put(index, glyph);
+                if (!小odeToGlyph.ContainsKey(index)) {
+                    小odeToGlyph.Put(index, glyph);
                 }
                 avgWidth += glyph.GetWidth();
             }
             FixSpaceIssue();
             for (var index = 0; index < glyphWidths.Length; index++) {
-                if (裲deToGlyph.ContainsKey(index)) {
+                if (小odeToGlyph.ContainsKey(index)) {
                     continue;
                 }
                 var glyph = new Glyph(index, glyphWidths[index], -1);
-                裲deToGlyph.Put(index, glyph);
+                小odeToGlyph.Put(index, glyph);
                 avgWidth += glyph.GetWidth();
             }
-            if (裲deToGlyph.Count != 0) {
-                avgWidth /= 裲deToGlyph.Count;
+            if (小odeToGlyph.Count != 0) {
+                avgWidth /= 小odeToGlyph.Count;
             }
             ReadGdefTable();
             ReadGsubTable();

@@ -755,7 +755,7 @@ namespace IText.Kernel.Pdf {
                         }
                         xmp.Put(PdfName.Type, PdfName.Metadata);
                         xmp.Put(PdfName.Subtype, PdfName.XML);
-                        if (writer.crypto != null && !writer.crypto.IsMetadataEncrypted()) {
+                        if (writer.Crypto != null && !writer.Crypto.IsMetadataEncrypted()) {
                             var ar = new PdfArray();
                             ar.Add(PdfName.Crypt);
                             xmp.Put(PdfName.Filter, ar);
@@ -789,8 +789,8 @@ namespace IText.Kernel.Pdf {
                             GetDocumentInfo().GetPdfObject().Flush(false);
                         }
                         FlushFonts();
-                        if (writer.crypto != null) {
-                            Debug.Assert(reader.decrypt.GetPdfObject() == writer.crypto.GetPdfObject(), "Conflict with source encryption"
+                        if (writer.Crypto != null) {
+                            Debug.Assert(reader.decrypt.GetPdfObject() == writer.Crypto.GetPdfObject(), "Conflict with source encryption"
                                 );
                             crypto = reader.decrypt.GetPdfObject();
                             if (crypto.GetIndirectReference() != null) {
@@ -832,8 +832,8 @@ namespace IText.Kernel.Pdf {
                         catalog.GetPdfObject().Flush(false);
                         GetDocumentInfo().GetPdfObject().Flush(false);
                         FlushFonts();
-                        if (writer.crypto != null) {
-                            crypto = writer.crypto.GetPdfObject();
+                        if (writer.Crypto != null) {
+                            crypto = writer.Crypto.GetPdfObject();
                             crypto.MakeIndirect(this);
                             forbiddenToFlush.Add(crypto.GetIndirectReference());
                         }
@@ -855,7 +855,7 @@ namespace IText.Kernel.Pdf {
                     }
                     // To avoid encryption of XrefStream and Encryption dictionary remove crypto.
                     // NOTE. No need in reverting, because it is the last operation with the document.
-                    writer.crypto = null;
+                    writer.Crypto = null;
                     if (!properties.appendMode && crypto != null) {
                         // no need to flush crypto in append mode, it shall not have changed in this case
                         crypto.Flush(false);
@@ -2028,9 +2028,9 @@ namespace IText.Kernel.Pdf {
                         throw new BadPasswordException(BadPasswordException.PdfReaderNotOpenedWithOwnerPassword);
                     }
                     if (reader != null && properties.preserveEncryption) {
-                        writer.crypto = reader.decrypt;
+                        writer.Crypto = reader.decrypt;
                     }
-                    writer.document = this;
+                    writer.Document = this;
                     if (reader == null) {
                         catalog = new PdfCatalog(this);
                         info = new PdfDocumentInfo(this).AddCreationDate();
@@ -2083,7 +2083,7 @@ namespace IText.Kernel.Pdf {
                     file.Close();
                     writer.Write((byte)'\n');
                     OverrideFullCompressionInWriterProperties(writer.properties, reader.HasXrefStm());
-                    writer.crypto = reader.decrypt;
+                    writer.Crypto = reader.decrypt;
                     if (newPdfVersion != null) {
                         // In PDF 1.4, a PDF version can also be specified in the Version entry of the document catalog,
                         // essentially updating the version associated with the file by overriding the one specified in the file header
@@ -2107,20 +2107,20 @@ namespace IText.Kernel.Pdf {
                             pdfVersion = newPdfVersion;
                         }
                         writer.WriteHeader();
-                        if (writer.crypto == null) {
+                        if (writer.Crypto == null) {
                             writer.InitCryptoIfSpecified(pdfVersion);
                         }
-                        if (writer.crypto != null) {
-                            if (!embeddedStreamsSavedOnReading && writer.crypto.IsEmbeddedFilesOnly()) {
+                        if (writer.Crypto != null) {
+                            if (!embeddedStreamsSavedOnReading && writer.Crypto.IsEmbeddedFilesOnly()) {
                                 encryptedEmbeddedStreamsHandler.StoreAllEmbeddedStreams();
                             }
-                            if (writer.crypto.GetCryptoMode() < EncryptionConstants.ENCRYPTION_AES_256) {
+                            if (writer.Crypto.GetCryptoMode() < EncryptionConstants.ENCRYPTION_AES_256) {
                                 VersionConforming.ValidatePdfVersionForDeprecatedFeatureLogWarn(this, PdfVersion.PDF_2_0, VersionConforming
                                     .DEPRECATED_ENCRYPTION_ALGORITHMS);
                             }
                             else {
-                                if (writer.crypto.GetCryptoMode() == EncryptionConstants.ENCRYPTION_AES_256) {
-                                    var r = writer.crypto.GetPdfObject().GetAsNumber(PdfName.R);
+                                if (writer.Crypto.GetCryptoMode() == EncryptionConstants.ENCRYPTION_AES_256) {
+                                    var r = writer.Crypto.GetPdfObject().GetAsNumber(PdfName.R);
                                     if (r != null && r.IntValue() == 5) {
                                         VersionConforming.ValidatePdfVersionForDeprecatedFeatureLogWarn(this, PdfVersion.PDF_2_0, VersionConforming
                                             .DEPRECATED_AES256_REVISION);
