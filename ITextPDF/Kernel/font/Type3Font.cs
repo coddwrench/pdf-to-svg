@@ -58,22 +58,22 @@ namespace IText.Kernel.Font
 	/// </remarks>
 	public class Type3Font : FontProgram
 	{
-		private readonly IDictionary<int, Type3Glyph> type3Glyphs = new Dictionary<int, Type3Glyph>();
+		private readonly IDictionary<int, Type3Glyph> _type3Glyphs = new Dictionary<int, Type3Glyph>();
 
 		/// <summary>Stores glyphs without associated unicode.</summary>
-		private readonly IDictionary<int, Type3Glyph> type3GlyphsWithoutUnicode = new Dictionary<int, Type3Glyph>(
+		private readonly IDictionary<int, Type3Glyph> _type3GlyphsWithoutUnicode = new Dictionary<int, Type3Glyph>(
 			);
 
-		private bool colorized;
+		private readonly bool _colorized;
 
-		private int flags;
+		private int _flags;
 
 		/// <summary>Creates a Type 3 font program.</summary>
 		/// <param name="colorized">defines whether the glyph color is specified in the glyph descriptions in the font.
 		///     </param>
 		internal Type3Font(bool colorized)
 		{
-			this.colorized = colorized;
+			_colorized = colorized;
 			fontNames = new FontNames();
 			GetFontMetrics().SetBbox(0, 0, 0, 0);
 		}
@@ -89,7 +89,7 @@ namespace IText.Kernel.Font
 		/// </returns>
 		public virtual Type3Glyph GetType3Glyph(int unicode)
 		{
-			return type3Glyphs.Get(unicode);
+			return _type3Glyphs.Get(unicode);
 		}
 
 		/// <summary>Returns a glyph by its code.</summary>
@@ -104,17 +104,17 @@ namespace IText.Kernel.Font
 		/// </returns>
 		public virtual Type3Glyph GetType3GlyphByCode(int code)
 		{
-			var glyph = type3GlyphsWithoutUnicode.Get(code);
-			if (glyph == null && 裲deToGlyph.Get(code) != null)
+			var glyph = _type3GlyphsWithoutUnicode.Get(code);
+			if (glyph == null && 小odeToGlyph.Get(code) != null)
 			{
-				glyph = type3Glyphs.Get(裲deToGlyph.Get(code).GetUnicode());
+				glyph = _type3Glyphs.Get(小odeToGlyph.Get(code).GetUnicode());
 			}
 			return glyph;
 		}
 
 		public override int GetPdfFontFlags()
 		{
-			return flags;
+			return _flags;
 		}
 
 		public override bool IsFontSpecific()
@@ -124,7 +124,7 @@ namespace IText.Kernel.Font
 
 		public virtual bool IsColorized()
 		{
-			return colorized;
+			return _colorized;
 		}
 
 		public override int GetKerning(Glyph glyph1, Glyph glyph2)
@@ -137,7 +137,7 @@ namespace IText.Kernel.Font
 		/// Returns number of glyphs for this font.
 		/// Its also count glyphs without unicode.
 		/// See
-		/// <see cref="type3GlyphsWithoutUnicode"/>.
+		/// <see cref="_type3GlyphsWithoutUnicode"/>.
 		/// </remarks>
 		/// <returns>
 		/// 
@@ -146,7 +146,7 @@ namespace IText.Kernel.Font
 		/// </returns>
 		public virtual int GetNumberOfGlyphs()
 		{
-			return type3Glyphs.Count + type3GlyphsWithoutUnicode.Count;
+			return _type3Glyphs.Count + _type3GlyphsWithoutUnicode.Count;
 		}
 
 		/// <summary>Sets the PostScript name of the font.</summary>
@@ -228,32 +228,32 @@ namespace IText.Kernel.Font
 		/// </param>
 		internal virtual void SetPdfFontFlags(int flags)
 		{
-			this.flags = flags;
+			_flags = flags;
 		}
 
 		internal virtual void AddGlyph(int code, int unicode, int width, int[] bbox, Type3Glyph type3Glyph)
 		{
-			if (裲deToGlyph.ContainsKey(code))
+			if (小odeToGlyph.ContainsKey(code))
 			{
 				RemoveGlyphFromMappings(code);
 			}
 			var glyph = new Glyph(code, width, unicode, bbox);
-			裲deToGlyph.Put(code, glyph);
+			小odeToGlyph.Put(code, glyph);
 			if (unicode < 0)
 			{
-				type3GlyphsWithoutUnicode.Put(code, type3Glyph);
+				_type3GlyphsWithoutUnicode.Put(code, type3Glyph);
 			}
 			else
 			{
 				UnicodeToGlyph.Put(unicode, glyph);
-				type3Glyphs.Put(unicode, type3Glyph);
+				_type3Glyphs.Put(unicode, type3Glyph);
 			}
 			RecalculateAverageWidth();
 		}
 
 		private void RemoveGlyphFromMappings(int glyphCode)
 		{
-			var removed = 裲deToGlyph.JRemove(glyphCode);
+			var removed = 小odeToGlyph.JRemove(glyphCode);
 			if (removed == null)
 			{
 				return;
@@ -261,20 +261,20 @@ namespace IText.Kernel.Font
 			var unicode = removed.GetUnicode();
 			if (unicode < 0)
 			{
-				type3GlyphsWithoutUnicode.JRemove(glyphCode);
+				_type3GlyphsWithoutUnicode.JRemove(glyphCode);
 			}
 			else
 			{
 				UnicodeToGlyph.JRemove(unicode);
-				type3Glyphs.JRemove(unicode);
+				_type3Glyphs.JRemove(unicode);
 			}
 		}
 
 		private void RecalculateAverageWidth()
 		{
 			var widthSum = 0;
-			var glyphsNumber = 裲deToGlyph.Count;
-			foreach (var glyph in 裲deToGlyph.Values)
+			var glyphsNumber = 小odeToGlyph.Count;
+			foreach (var glyph in 小odeToGlyph.Values)
 			{
 				if (glyph.GetWidth() == 0)
 				{
