@@ -1,4 +1,4 @@
-/*
+﻿/*
 
 This file is part of the iText (R) project.
 Copyright (c) 1998-2021 iText Group NV
@@ -54,13 +54,13 @@ namespace IText.Kernel.Font
 {
 	internal class DocType1Font : Type1Font, IDocFontProgram
 	{
-		private PdfStream fontFile;
+		private PdfStream _fontFile;
 
-		private PdfName fontFileName;
+		private PdfName _fontFileName;
 
-		private PdfName subtype;
+		private PdfName _subtype;
 
-		private int missingWidth;
+		private int _missingWidth;
 
 		private DocType1Font(string fontName)
 			: base(fontName)
@@ -100,7 +100,7 @@ namespace IText.Kernel.Font
 			}
 			var fontProgram = new DocType1Font(baseFont);
 			var fontDesc = fontDictionary.GetAsDictionary(PdfName.FontDescriptor);
-			fontProgram.subtype = fontDesc != null ? fontDesc.GetAsName(PdfName.Subtype) : null;
+			fontProgram._subtype = fontDesc != null ? fontDesc.GetAsName(PdfName.Subtype) : null;
 			FillFontDescriptor(fontProgram, fontDesc);
 			var firstCharNumber = fontDictionary.GetAsNumber(PdfName.FirstChar);
 			var firstChar = firstCharNumber != null ? Math.Max(firstCharNumber.IntValue(), 0) : 0;
@@ -111,7 +111,7 @@ namespace IText.Kernel.Font
 			for (var i = 0; i < 256; i++)
 			{
 				var glyph = new Glyph(i, widths[i], fontEncoding.GetUnicode(i));
-				fontProgram.�odeToGlyph.Put(i, glyph);
+				fontProgram.СodeToGlyph.Put(i, glyph);
 				if (glyph.HasValidUnicode())
 				{
 					//FontEncoding.codeToUnicode table has higher priority
@@ -142,17 +142,17 @@ namespace IText.Kernel.Font
 
 		public virtual PdfStream GetFontFile()
 		{
-			return fontFile;
+			return _fontFile;
 		}
 
 		public virtual PdfName GetFontFileName()
 		{
-			return fontFileName;
+			return _fontFileName;
 		}
 
 		public virtual PdfName GetSubtype()
 		{
-			return subtype;
+			return _subtype;
 		}
 
 		/// <summary>Returns false, because we cannot rely on an actual font subset and font name.</summary>
@@ -165,7 +165,7 @@ namespace IText.Kernel.Font
 
 		public virtual int GetMissingWidth()
 		{
-			return missingWidth;
+			return _missingWidth;
 		}
 
 		internal static void FillFontDescriptor(DocType1Font font, PdfDictionary fontDesc)
@@ -219,7 +219,7 @@ namespace IText.Kernel.Font
 			v = fontDesc.GetAsNumber(PdfName.MissingWidth);
 			if (v != null)
 			{
-				font.missingWidth = v.IntValue();
+				font._missingWidth = v.IntValue();
 			}
 			var fontStretch = fontDesc.GetAsName(PdfName.FontStretch);
 			if (fontStretch != null)
@@ -284,8 +284,8 @@ namespace IText.Kernel.Font
 			{
 				if (fontDesc.ContainsKey(fontFile))
 				{
-					font.fontFileName = fontFile;
-					font.fontFile = fontDesc.GetAsStream(fontFile);
+					font._fontFileName = fontFile;
+					font._fontFile = fontDesc.GetAsStream(fontFile);
 					break;
 				}
 			}
