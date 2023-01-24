@@ -86,7 +86,7 @@ namespace IText.Kernel.Font {
     /// <see cref="PdfObject"/>
     /// must be indirect.
     /// </remarks>
-    public class PdfType3Font : PdfSimpleFont<Type3Font> {
+    public sealed class PdfType3Font : PdfSimpleFont<Type3Font> {
         private const int FONT_BBOX_LLX = 0;
 
         private const int FONT_BBOX_LLY = 1;
@@ -166,13 +166,13 @@ namespace IText.Kernel.Font {
 
         /// <summary>Sets the PostScript name of the font.</summary>
         /// <param name="fontName">the PostScript name of the font, shall not be null or empty.</param>
-        public virtual void SetFontName(string fontName) {
+        public void SetFontName(string fontName) {
             ((Type3Font)fontProgram).SetFontName(fontName);
         }
 
         /// <summary>Sets a preferred font family name.</summary>
         /// <param name="fontFamily">a preferred font family name.</param>
-        public virtual void SetFontFamily(string fontFamily) {
+        public void SetFontFamily(string fontFamily) {
             ((Type3Font)fontProgram).SetFontFamily(fontFamily);
         }
 
@@ -181,13 +181,13 @@ namespace IText.Kernel.Font {
         /// integer form 100 to 900. See
         /// <see cref="FontWeights"/>.
         /// </param>
-        public virtual void SetFontWeight(int fontWeight) {
+        public void SetFontWeight(int fontWeight) {
             ((Type3Font)fontProgram).SetFontWeight(fontWeight);
         }
 
         /// <summary>Sets cap height.</summary>
         /// <param name="capHeight">integer in glyph-space 1000-units</param>
-        public virtual void SetCapHeight(int capHeight) {
+        public void SetCapHeight(int capHeight) {
             ((Type3Font)fontProgram).SetCapHeight(capHeight);
         }
 
@@ -198,7 +198,7 @@ namespace IText.Kernel.Font {
         /// Italic angle in counter-clockwise degrees from the vertical. Zero for upright text, negative for text that leans to the right (forward).
         /// </remarks>
         /// <param name="italicAngle">in counter-clockwise degrees from the vertical</param>
-        public virtual void SetItalicAngle(int italicAngle) {
+        public void SetItalicAngle(int italicAngle) {
             ((Type3Font)fontProgram).SetItalicAngle(italicAngle);
         }
 
@@ -207,14 +207,14 @@ namespace IText.Kernel.Font {
         /// 
         /// <see cref="FontStretches"/>.
         /// </param>
-        public virtual void SetFontStretch(string fontWidth) {
+        public void SetFontStretch(string fontWidth) {
             ((Type3Font)fontProgram).SetFontStretch(fontWidth);
         }
 
         /// <summary>Sets Font descriptor flags.</summary>
         /// <param name="flags">font descriptor flags.</param>
         /// <seealso cref="FontDescriptorFlags"/>
-        public virtual void SetPdfFontFlags(int flags) {
+        public void SetPdfFontFlags(int flags) {
             ((Type3Font)fontProgram).SetPdfFontFlags(flags);
         }
 
@@ -231,7 +231,7 @@ namespace IText.Kernel.Font {
         /// <see langword="null"/>
         /// if this font does not contain glyph for the unicode
         /// </returns>
-        public virtual Type3Glyph GetType3Glyph(int unicode) {
+        public Type3Glyph GetType3Glyph(int unicode) {
             return ((Type3Font)GetFontProgram()).GetType3Glyph(unicode);
         }
 
@@ -254,13 +254,13 @@ namespace IText.Kernel.Font {
         /// mapping glyph space to text space.
         /// </param>
         [Obsolete(@"will be made internal in next major release")]
-        public virtual void SetFontMatrix(double[] fontMatrix) {
+        public void SetFontMatrix(double[] fontMatrix) {
             this.fontMatrix = fontMatrix;
         }
 
         /// <summary>Gets count of glyphs in Type 3 font.</summary>
         /// <returns>number of glyphs.</returns>
-        public virtual int GetNumberOfGlyphs() {
+        public int GetNumberOfGlyphs() {
             return ((Type3Font)GetFontProgram()).GetNumberOfGlyphs();
         }
 
@@ -285,7 +285,7 @@ namespace IText.Kernel.Font {
         /// <c>true</c> the value is ignored
         /// </param>
         /// <returns>a content where the glyph can be defined</returns>
-        public virtual Type3Glyph AddGlyph(char c, int wx, int llx, int lly, int urx, int ury) {
+        public Type3Glyph AddGlyph(char c, int wx, int llx, int lly, int urx, int ury) {
             var glyph = GetType3Glyph(c);
             if (glyph != null) {
                 return glyph;
@@ -391,7 +391,7 @@ namespace IText.Kernel.Font {
         protected internal override void AddFontStream(PdfDictionary fontDescriptor) {
         }
 
-        protected internal virtual PdfDocument GetDocument() {
+        internal PdfDocument GetDocument() {
             return GetPdfObject().GetIndirectReference().GetDocument();
         }
 

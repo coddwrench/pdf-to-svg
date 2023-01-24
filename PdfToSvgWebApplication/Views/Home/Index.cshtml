@@ -7,7 +7,7 @@
                            border-width: 1px;
                            border-radius: 0.25rem;
                        }</style>
-@model PdfToSvgWebApplication.Models.PdfModel
+@model PdfToSvgWebApp.Models.PdfModel
 @{
     ViewData["Title"] = @Model == null?"Upload File": @Model.FileName;
 }
@@ -31,14 +31,17 @@
     else
     {
         <div class="pdf-content">
+        @if (@Model.Pages != null)
+        {
             @foreach (var page in @Model.Pages)
             {
                 <div class="page @(page.PageSize) @(page.Orientation)">
                     <div class="canvas-wrapper">
-                        @Html.Raw(page.Value.ToString())
+                        @Html.Raw(page.Value?.ToString())
                     </div>
                 </div>
             }
+        }
         </div>
     }
 

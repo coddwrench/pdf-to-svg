@@ -57,8 +57,10 @@ namespace  IText.IO.Colors {
 
         private static IDictionary<string, int?> cstags = new Dictionary<string, int?>();
 
-        protected internal IccProfile() {
-        }
+         private IccProfile(byte[] data)
+         {
+             this.data = data;
+         }
 
         /// <summary>Construct an icc profile from the passed byte[], using the passed number of components.</summary>
         /// <param name="data">byte[] containing the raw icc profile data</param>
@@ -68,11 +70,11 @@ namespace  IText.IO.Colors {
             if (data.Length < 128 || data[36] != 0x61 || data[37] != 0x63 || data[38] != 0x73 || data[39] != 0x70) {
                 throw new IOException(IOException.InvalidIccProfile);
             }
-            var icc = new IccProfile();
-            icc.data = data;
-            int? cs;
-            cs = GetIccNumberOfComponents(data);
-            var nc = cs == null ? 0 : (int)cs;
+
+            var icc = new IccProfile(data);
+    
+            var cs = GetIccNumberOfComponents(data);
+            var nc = cs ?? 0;
             icc.numComponents = nc;
             // invalid ICC
             if (nc != numComponents) {
@@ -86,9 +88,8 @@ namespace  IText.IO.Colors {
         /// <param name="data">byte[] containing the raw icc profile data</param>
         /// <returns>IccProfile constructed from the data</returns>
         public static IccProfile GetInstance(byte[] data) {
-            int? cs;
-            cs = GetIccNumberOfComponents(data);
-            var numComponents = cs == null ? 0 : (int)cs;
+            var cs = GetIccNumberOfComponents(data);
+            var numComponents = cs ?? 0;
             return GetInstance(data, numComponents);
         }
 

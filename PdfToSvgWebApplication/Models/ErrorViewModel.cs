@@ -1,4 +1,4 @@
-namespace PdfToSvgWebApplication.Models
+namespace PdfToSvgWebApp.Models
 {
     public class ErrorViewModel
     {

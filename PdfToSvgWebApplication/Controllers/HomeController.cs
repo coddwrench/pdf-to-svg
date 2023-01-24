@@ -1,12 +1,12 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using PdfToSvgWebApplication.Models;
-using System.Diagnostics;
-using IText.Kernel.Pdf;
-using RSB.ITextPDF.Pdf2Svg;
+﻿using System.Diagnostics;
 using System.Xml.Linq;
 using IText.Kernel.Geom;
+using IText.Kernel.Pdf;
+using Microsoft.AspNetCore.Mvc;
+using PdfToSvgWebApp.Models;
+using RSB.ITextPDF.Pdf2Svg;
 
-namespace PdfToSvgWebApplication.Controllers
+namespace PdfToSvgWebApp.Controllers
 {
     public class HomeController : Controller
     {
