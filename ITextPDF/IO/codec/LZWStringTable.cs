@@ -54,48 +54,48 @@ namespace  IText.IO.Codec {
     /// The strLen_ table to give quick access to the lenght of an expanded
     /// code for use by the <c>expandCode</c> method added by Robin.
     /// </remarks>
-    public class LZWStringTable {
+    public class LzwStringTable {
         /// <summary>codesize + Reserved Codes</summary>
-        private const int RES_CODES = 2;
+        private const int ResCodes = 2;
 
         //0xFFFF
-        private const short HASH_FREE = -1;
+        private const short HashFree = -1;
 
         //0xFFFF
-        private const short NEXT_FIRST = -1;
+        private const short NextFirst = -1;
 
-        private const int MAXBITS = 12;
+        private const int Maxbits = 12;
 
-        private const int MAXSTR = (1 << MAXBITS);
+        private const int Maxstr = (1 << Maxbits);
 
-        private const short HASHSIZE = 9973;
+        private const short Hashsize = 9973;
 
-        private const short HASHSTEP = 2039;
+        private const short Hashstep = 2039;
 
         // after predecessor character
-        internal byte[] strChr_;
+        internal byte[] StrChr;
 
         // predecessor string
-        internal short[] strNxt_;
+        internal short[] StrNxt;
 
         // hash table to find  predecessor + char pairs
-        internal short[] strHsh_;
+        internal short[] StrHsh;
 
         // next code if adding new prestring + char
-        internal short numStrings_;
+        internal short NumStrings;
 
         /// <summary>
         /// each entry corresponds to a code and contains the length of data
         /// that the code expands to when decoded.
         /// </summary>
-        internal int[] strLen_;
+        internal int[] StrLen;
 
         /// <summary>Constructor allocate memory for string store data</summary>
-        public LZWStringTable() {
-            strChr_ = new byte[MAXSTR];
-            strNxt_ = new short[MAXSTR];
-            strLen_ = new int[MAXSTR];
-            strHsh_ = new short[HASHSIZE];
+        public LzwStringTable() {
+            StrChr = new byte[Maxstr];
+            StrNxt = new short[Maxstr];
+            StrLen = new int[Maxstr];
+            StrHsh = new short[Hashsize];
         }
 
         /// <param name="index">value of -1 indicates no predecessor [used in initialization]</param>
@@ -110,25 +110,25 @@ namespace  IText.IO.Codec {
         public virtual int AddCharString(short index, byte b) {
             int hshidx;
             // if used up all codes
-            if (numStrings_ >= MAXSTR) {
+            if (NumStrings >= Maxstr) {
                 return 0xFFFF;
             }
             hshidx = Hash(index, b);
-            while (strHsh_[hshidx] != HASH_FREE) {
-                hshidx = (hshidx + HASHSTEP) % HASHSIZE;
+            while (StrHsh[hshidx] != HashFree) {
+                hshidx = (hshidx + Hashstep) % Hashsize;
             }
-            strHsh_[hshidx] = numStrings_;
-            strChr_[numStrings_] = b;
-            if (index == HASH_FREE) {
-                strNxt_[numStrings_] = NEXT_FIRST;
-                strLen_[numStrings_] = 1;
+            StrHsh[hshidx] = NumStrings;
+            StrChr[NumStrings] = b;
+            if (index == HashFree) {
+                StrNxt[NumStrings] = NextFirst;
+                StrLen[NumStrings] = 1;
             }
             else {
-                strNxt_[numStrings_] = index;
-                strLen_[numStrings_] = strLen_[index] + 1;
+                StrNxt[NumStrings] = index;
+                StrLen[NumStrings] = StrLen[index] + 1;
             }
             // return the code and inc for next code
-            return numStrings_++;
+            return NumStrings++;
         }
 
         /// <param name="index">index to prefix string</param>
@@ -140,17 +140,17 @@ namespace  IText.IO.Codec {
         public virtual short FindCharString(short index, byte b) {
             int hshidx;
             int nxtidx;
-            if (index == HASH_FREE) {
+            if (index == HashFree) {
                 // Rob fixed used to sign extend
                 return (short)(b & 0xFF);
             }
             hshidx = Hash(index, b);
             // search
-            while ((nxtidx = strHsh_[hshidx]) != HASH_FREE) {
-                if (strNxt_[nxtidx] == index && strChr_[nxtidx] == b) {
+            while ((nxtidx = StrHsh[hshidx]) != HashFree) {
+                if (StrNxt[nxtidx] == index && StrChr[nxtidx] == b) {
                     return (short)nxtidx;
                 }
-                hshidx = (hshidx + HASHSTEP) % HASHSIZE;
+                hshidx = (hshidx + Hashstep) % Hashsize;
             }
             //return (short) 0xFFFF;
             return -1;
@@ -161,11 +161,11 @@ namespace  IText.IO.Codec {
         /// string store.
         /// </param>
         public virtual void ClearTable(int codesize) {
-            numStrings_ = 0;
-            for (var q = 0; q < HASHSIZE; q++) {
-                strHsh_[q] = HASH_FREE;
+            NumStrings = 0;
+            for (var q = 0; q < Hashsize; q++) {
+                StrHsh[q] = HashFree;
             }
-            var w = (1 << codesize) + RES_CODES;
+            var w = (1 << codesize) + ResCodes;
             for (var q = 0; q < w; q++) {
                 // init with no prefix
                 AddCharString(-1, (byte)q);
@@ -173,7 +173,7 @@ namespace  IText.IO.Codec {
         }
 
         public static int Hash(short index, byte lastbyte) {
-            return (((short)(lastbyte << 8) ^ index) & 0xFFFF) % HASHSIZE;
+            return (((short)(lastbyte << 8) ^ index) & 0xFFFF) % Hashsize;
         }
 
         /// <summary>
@@ -216,13 +216,13 @@ namespace  IText.IO.Codec {
             //-1 ~ 0xFFFF
             if (code == -1 || 
                         // DONE no more unpacked
-                        skipHead == strLen_[code]) {
+                        skipHead == StrLen[code]) {
                 return 0;
             }
             // how much data we are actually expanding
             int expandLen;
             // length of expanded code left
-            var codeLen = strLen_[code] - skipHead;
+            var codeLen = StrLen[code] - skipHead;
             // how much space left
             var bufSpace = buf.Length - offset;
             if (bufSpace > codeLen) {
@@ -241,10 +241,10 @@ namespace  IText.IO.Codec {
             while ((idx > offset) && (code != -1)) {
                 // skip required of expanded data
                 if (--skipTail < 0) {
-                    buf[--idx] = strChr_[code];
+                    buf[--idx] = StrChr[code];
                 }
                 // to predecessor code
-                code = strNxt_[code];
+                code = StrNxt[code];
             }
             if (codeLen > expandLen) {
                 // indicate what part of codeLen used
@@ -257,9 +257,9 @@ namespace  IText.IO.Codec {
 
         public virtual void Dump(FormattingStreamWriter output) {
             int i;
-            for (i = 258; i < numStrings_; ++i) {
-                output.WriteLine(" strNxt_[" + i + "] = " + strNxt_[i] + " strChr_ " + JavaUtil.IntegerToHexString(strChr_
-                    [i] & 0xFF) + " strLen_ " + JavaUtil.IntegerToHexString(strLen_[i]));
+            for (i = 258; i < NumStrings; ++i) {
+                output.WriteLine(" strNxt_[" + i + "] = " + StrNxt[i] + " strChr_ " + JavaUtil.IntegerToHexString(StrChr
+                    [i] & 0xFF) + " strLen_ " + JavaUtil.IntegerToHexString(StrLen[i]));
             }
         }
     }

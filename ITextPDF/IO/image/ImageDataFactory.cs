@@ -145,7 +145,7 @@ namespace  IText.IO.Image {
                 throw new IOException(IOException.TransparencyLengthMustBeEqualTo2WithCcittImages);
             }
             if (components == 1 && bpc == 1) {
-                var g4 = CCITTG4Encoder.Compress(data, width, height);
+                var g4 = Ccittg4Encoder.Compress(data, width, height);
                 return Create(width, height, false, RawImageData.CCITTG4, RawImageData.CCITT_BLACKIS1
                     , g4, transparency);
             }

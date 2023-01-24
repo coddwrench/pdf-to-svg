@@ -83,8 +83,8 @@ namespace  IText.IO.Image {
                 sr.Read();
                 Jbig2SegmentReader.Jbig2Page p = sr.GetPage(image.GetPage());
                 raf.Close();
-                image.SetHeight(p.pageBitmapHeight);
-                image.SetWidth(p.pageBitmapWidth);
+                image.SetHeight(p.PageBitmapHeight);
+                image.SetWidth(p.PageBitmapWidth);
                 image.SetBpc(1);
                 image.SetColorSpace(1);
                 //TODO JBIG2 globals caching

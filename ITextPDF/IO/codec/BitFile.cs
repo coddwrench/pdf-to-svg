@@ -42,6 +42,7 @@ For more information, please contact iText Software Corp. at this
 address: sales@itextpdf.com
 */
 
+using System;
 using System.IO;
 
 namespace  IText.IO.Codec {
@@ -51,102 +52,102 @@ namespace  IText.IO.Codec {
     /// Modified - to allow for output compressed data without the block counts
     /// which breakup the compressed data stream for GIF.
     /// </remarks>
-    internal class BitFile {
-        internal Stream output;
+    internal class BitFile:IDisposable {
+        private readonly Stream _output;
 
-        internal byte[] buffer;
+        private readonly byte[] _buffer;
 
-        internal int index;
+        private int _index;
 
         // bits left at current index that are avail.
-        internal int bitsLeft;
+        private int _bitsLeft;
 
         /// <summary>note this also indicates gif format BITFile.</summary>
-        internal bool blocks;
+        private readonly bool _blocks;
 
         /// <param name="output">destination for output data</param>
         /// <param name="blocks">GIF LZW requires block counts for output data</param>
         public BitFile(Stream output, bool blocks) {
-            this.output = output;
-            this.blocks = blocks;
-            buffer = new byte[256];
-            index = 0;
-            bitsLeft = 8;
+            _output = output;
+            _blocks = blocks;
+            _buffer = new byte[256];
+            _index = 0;
+            _bitsLeft = 8;
         }
 
         public virtual void Flush() {
-            var numBytes = index + (bitsLeft == 8 ? 0 : 1);
+            var numBytes = _index + (_bitsLeft == 8 ? 0 : 1);
             if (numBytes > 0) {
-                if (blocks) {
-                    output.Write(numBytes);
+                if (_blocks) {
+                    _output.Write(numBytes);
                 }
-                output.Write(buffer, 0, numBytes);
-                buffer[0] = 0;
-                index = 0;
-                bitsLeft = 8;
+                _output.Write(_buffer, 0, numBytes);
+                _buffer[0] = 0;
+                _index = 0;
+                _bitsLeft = 8;
             }
         }
 
         public virtual void WriteBits(int bits, int numbits) {
-            var bitsWritten = 0;
             // gif block count
             var numBytes = 255;
             do {
                 // This handles the GIF block count stuff
-                if ((index == 254 && bitsLeft == 0) || index > 254) {
-                    if (blocks) {
-                        output.Write(numBytes);
+                if ((_index == 254 && _bitsLeft == 0) || _index > 254) {
+                    if (_blocks) {
+                        _output.Write(numBytes);
                     }
-                    output.Write(buffer, 0, numBytes);
-                    buffer[0] = 0;
-                    index = 0;
-                    bitsLeft = 8;
+                    _output.Write(_buffer, 0, numBytes);
+                    _buffer[0] = 0;
+                    _index = 0;
+                    _bitsLeft = 8;
                 }
                 // bits contents fit in current index byte
-                if (numbits <= bitsLeft) {
+                if (numbits <= _bitsLeft) {
                     // GIF
-                    if (blocks) {
-                        buffer[index] |= (byte)((bits & ((1 << numbits) - 1)) << (8 - bitsLeft));
-                        bitsWritten += numbits;
-                        bitsLeft -= numbits;
+                    if (_blocks) {
+                        _buffer[_index] |= (byte)((bits & ((1 << numbits) - 1)) << (8 - _bitsLeft));
+                        _bitsLeft -= numbits;
                         numbits = 0;
                     }
                     else {
-                        buffer[index] |= (byte)((bits & ((1 << numbits) - 1)) << (bitsLeft - numbits));
-                        bitsWritten += numbits;
-                        bitsLeft -= numbits;
+                        _buffer[_index] |= (byte)((bits & ((1 << numbits) - 1)) << (_bitsLeft - numbits));
+                        _bitsLeft -= numbits;
                         numbits = 0;
                     }
                 }
                 else {
                     // bits overflow from current byte to next.
                     // GIF
-                    if (blocks) {
+                    if (_blocks) {
                         // if bits  > space left in current byte then the lowest order bits
                         // of code are taken and put in current byte and rest put in next.
-                        buffer[index] |= (byte)((bits & ((1 << bitsLeft) - 1)) << (8 - bitsLeft));
-                        bitsWritten += bitsLeft;
-                        bits >>= bitsLeft;
-                        numbits -= bitsLeft;
-                        buffer[++index] = 0;
-                        bitsLeft = 8;
+                        _buffer[_index] |= (byte)((bits & ((1 << _bitsLeft) - 1)) << (8 - _bitsLeft));
+                        bits >>= _bitsLeft;
+                        numbits -= _bitsLeft;
+                        _buffer[++_index] = 0;
+                        _bitsLeft = 8;
                     }
                     else {
                         // if bits  > space left in current byte then the highest order bits
                         // of code are taken and put in current byte and rest put in next.
                         // at highest order bit location !!
-                        var topbits = ((int)(((uint)bits) >> (numbits - bitsLeft))) & ((1 << bitsLeft) - 1);
-                        buffer[index] |= (byte)topbits;
+                        var topbits = ((int)(((uint)bits) >> (numbits - _bitsLeft))) & ((1 << _bitsLeft) - 1);
+                        _buffer[_index] |= (byte)topbits;
                         // ok this many bits gone off the top
-                        numbits -= bitsLeft;
-                        bitsWritten += bitsLeft;
+                        numbits -= _bitsLeft;
                         // next index
-                        buffer[++index] = 0;
-                        bitsLeft = 8;
+                        _buffer[++_index] = 0;
+                        _bitsLeft = 8;
                     }
                 }
             }
             while (numbits != 0);
+        }
+
+        public void Dispose()
+        {
+            _output.Dispose();
         }
     }
 }

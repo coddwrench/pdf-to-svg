@@ -226,7 +226,7 @@ namespace  IText.IO.Image {
                 }
                 else {
                     var rowsLeft = h;
-                    var g4 = new CCITTG4Encoder(w);
+                    var g4 = new Ccittg4Encoder(w);
                     for (var k = 0; k < offset.Length; ++k) {
                         var im = new byte[(int)size[k]];
                         s.Seek(offset[k]);
@@ -467,9 +467,9 @@ namespace  IText.IO.Image {
                     mstream = new ByteArrayOutputStream();
                     mzip = new DeflaterOutputStream(mstream);
                 }
-                CCITTG4Encoder g4 = null;
+                Ccittg4Encoder g4 = null;
                 if (bitsPerSample == 1 && samplePerPixel == 1 && photometric != TIFFConstants.PHOTOMETRIC_PALETTE) {
-                    g4 = new CCITTG4Encoder(w);
+                    g4 = new Ccittg4Encoder(w);
                 }
                 else {
                     stream = new ByteArrayOutputStream();

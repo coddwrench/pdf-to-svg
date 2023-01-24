@@ -49,54 +49,54 @@ namespace  IText.IO.Codec {
     /// Modified from original LZWCompressor to change interface to passing a
     /// buffer of data to be compressed.
     /// </summary>
-    public class LZWCompressor {
+    public class LzwCompressor {
         /// <summary>base underlying code size of data being compressed 8 for TIFF, 1 to 8 for GIF</summary>
-        internal int codeSize_;
+        internal int CodeSize;
 
         /// <summary>reserved clear code based on code size</summary>
-        internal int clearCode_;
+        internal int ClearCode;
 
         /// <summary>reserved end of data code based on code size</summary>
-        internal int endOfInfo_;
+        internal int EndOfInfo;
 
         /// <summary>current number bits output for each code</summary>
-        internal int numBits_;
+        internal int NumBits;
 
         /// <summary>limit at which current number of bits code size has to be increased</summary>
-        internal int limit_;
+        internal int Limit;
 
         /// <summary>the prefix code which represents the predecessor string to current input point</summary>
-        internal short prefix_;
+        internal short Prefix;
 
         /// <summary>output destination for bit codes</summary>
-        internal BitFile bf_;
+        internal BitFile Bf;
 
         /// <summary>general purpose LZW string table</summary>
-        internal LZWStringTable lzss_;
+        internal LzwStringTable Lzss;
 
         /// <summary>modify the limits of the code values in LZW encoding due to TIFF bug / feature</summary>
-        internal bool tiffFudge_;
+        internal bool TiffFudge;
 
         /// <param name="outputStream">destination for compressed data</param>
         /// <param name="codeSize">the initial code size for the LZW compressor</param>
-        /// <param name="TIFF">flag indicating that TIFF lzw fudge needs to be applied</param>
-        public LZWCompressor(Stream outputStream, int codeSize, bool TIFF) {
+        /// <param name="tiff">flag indicating that TIFF lzw fudge needs to be applied</param>
+        public LzwCompressor(Stream outputStream, int codeSize, bool tiff) {
             // set flag for GIF as NOT tiff
-            bf_ = new BitFile(outputStream, !TIFF);
-            codeSize_ = codeSize;
-            tiffFudge_ = TIFF;
-            clearCode_ = 1 << codeSize_;
-            endOfInfo_ = clearCode_ + 1;
-            numBits_ = codeSize_ + 1;
-            limit_ = (1 << numBits_) - 1;
-            if (tiffFudge_) {
-                --limit_;
+            Bf = new BitFile(outputStream, !tiff);
+            CodeSize = codeSize;
+            TiffFudge = tiff;
+            ClearCode = 1 << CodeSize;
+            EndOfInfo = ClearCode + 1;
+            NumBits = CodeSize + 1;
+            Limit = (1 << NumBits) - 1;
+            if (TiffFudge) {
+                --Limit;
             }
             //0xFFFF
-            prefix_ = -1;
-            lzss_ = new LZWStringTable();
-            lzss_.ClearTable(codeSize_);
-            bf_.WriteBits(clearCode_, numBits_);
+            Prefix = -1;
+            Lzss = new LzwStringTable();
+            Lzss.ClearTable(CodeSize);
+            Bf.WriteBits(ClearCode, NumBits);
         }
 
         /// <param name="buf">The data to be compressed to output stream</param>
@@ -109,26 +109,26 @@ namespace  IText.IO.Codec {
             var maxOffset = offset + length;
             for (idx = offset; idx < maxOffset; ++idx) {
                 c = buf[idx];
-                if ((index = lzss_.FindCharString(prefix_, c)) != -1) {
-                    prefix_ = index;
+                if ((index = Lzss.FindCharString(Prefix, c)) != -1) {
+                    Prefix = index;
                 }
                 else {
-                    bf_.WriteBits(prefix_, numBits_);
-                    if (lzss_.AddCharString(prefix_, c) > limit_) {
-                        if (numBits_ == 12) {
-                            bf_.WriteBits(clearCode_, numBits_);
-                            lzss_.ClearTable(codeSize_);
-                            numBits_ = codeSize_ + 1;
+                    Bf.WriteBits(Prefix, NumBits);
+                    if (Lzss.AddCharString(Prefix, c) > Limit) {
+                        if (NumBits == 12) {
+                            Bf.WriteBits(ClearCode, NumBits);
+                            Lzss.ClearTable(CodeSize);
+                            NumBits = CodeSize + 1;
                         }
                         else {
-                            ++numBits_;
+                            ++NumBits;
                         }
-                        limit_ = (1 << numBits_) - 1;
-                        if (tiffFudge_) {
-                            --limit_;
+                        Limit = (1 << NumBits) - 1;
+                        if (TiffFudge) {
+                            --Limit;
                         }
                     }
-                    prefix_ = (short)(c & 0xFF);
+                    Prefix = (short)(c & 0xFF);
                 }
             }
         }
@@ -138,11 +138,11 @@ namespace  IText.IO.Codec {
         /// any remaining buffered data.
         /// </summary>
         public virtual void Flush() {
-            if (prefix_ != -1) {
-                bf_.WriteBits(prefix_, numBits_);
+            if (Prefix != -1) {
+                Bf.WriteBits(Prefix, NumBits);
             }
-            bf_.WriteBits(endOfInfo_, numBits_);
-            bf_.Flush();
+            Bf.WriteBits(EndOfInfo, NumBits);
+            Bf.Flush();
         }
     }
 }

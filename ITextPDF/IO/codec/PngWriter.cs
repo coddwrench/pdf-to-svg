@@ -42,31 +42,39 @@ For more information, please contact iText Software Corp. at this
 address: sales@itextpdf.com
 */
 
+using System;
 using System.IO;
 using IText.IO.Source;
 
 namespace  IText.IO.Codec {
     /// <summary>Writes a PNG image.</summary>
     public class PngWriter {
-        private static readonly byte[] PNG_SIGNTURE = { 137, 80, 78, 71, 13, 10, 26, 10 };
+        private static readonly byte[] PngSignture = { 137, 80, 78, 71, 13, 10, 26, 10 };
 
+
+        // ReSharper disable once InconsistentNaming once IdentifierTypo
         private static readonly byte[] IHDR = ByteUtils.GetIsoBytes("IHDR");
-
+        // ReSharper disable once InconsistentNaming once IdentifierTypo
         private static readonly byte[] PLTE = ByteUtils.GetIsoBytes("PLTE");
-
+        // ReSharper disable once InconsistentNaming once IdentifierTypo
         private static readonly byte[] IDAT = ByteUtils.GetIsoBytes("IDAT");
-
+        // ReSharper disable once InconsistentNaming once IdentifierTypo
         private static readonly byte[] IEND = ByteUtils.GetIsoBytes("IEND");
+        // ReSharper disable once InconsistentNaming once IdentifierTypo
+        private static readonly byte[] ICCP = ByteUtils.GetIsoBytes("iCCP");
 
-        private static readonly byte[] iCCP = ByteUtils.GetIsoBytes("iCCP");
+        private static int[] _crcTable;
 
-        private static int[] crc_table;
+        private readonly Stream _out;
 
-        private Stream outp;
+         static PngWriter()
+         {
+             _crcTable = GetCrcTable();
+         }
 
-        public PngWriter(Stream outp) {
-            this.outp = outp;
-            outp.Write(PNG_SIGNTURE);
+        public PngWriter(Stream @out) {
+            _out = @out;
+            @out.Write(PngSignture);
         }
 
         public virtual void WriteHeader(int width, int height, int bitDepth, int colorType) {
@@ -82,7 +90,7 @@ namespace  IText.IO.Codec {
         }
 
         public virtual void WriteEnd() {
-            WriteChunk(IEND, new byte[0]);
+            WriteChunk(IEND, Array.Empty<byte>());
         }
 
         public virtual void WriteData(byte[] data, int stride) {
@@ -116,13 +124,10 @@ namespace  IText.IO.Codec {
             var zip = new DeflaterOutputStream(stream);
             zip.Write(data);
             zip.Dispose();
-            WriteChunk(iCCP, stream.ToArray());
+            WriteChunk(ICCP, stream.ToArray());
         }
 
-        private static void Make_crc_table() {
-            if (crc_table != null) {
-                return;
-            }
+        private static int[] GetCrcTable() {
             var crc2 = new int[256];
             for (var n = 0; n < 256; n++) {
                 var c = n;
@@ -136,17 +141,17 @@ namespace  IText.IO.Codec {
                 }
                 crc2[n] = c;
             }
-            crc_table = crc2;
+            return crc2;
         }
 
-        private static int Update_crc(int crc, byte[] buf, int offset, int len) {
+        private static int Update_crc(int crc, byte[] buf, int offset, int len)
+        {
             var c = crc;
-            if (crc_table == null) {
-                Make_crc_table();
+            for (var n = 0; n < len; n++)
+            {
+                c = _crcTable[(c ^ buf[n + offset]) & 0xff] ^ ((int) (((uint) c) >> 8));
             }
-            for (var n = 0; n < len; n++) {
-                c = crc_table[(c ^ buf[n + offset]) & 0xff] ^ ((int)(((uint)c) >> 8));
-            }
+
             return c;
         }
 
@@ -159,7 +164,7 @@ namespace  IText.IO.Codec {
         }
 
         public virtual void OutputInt(int n) {
-            OutputInt(n, outp);
+            OutputInt(n, _out);
         }
 
         public static void OutputInt(int n, Stream s) {
@@ -171,8 +176,8 @@ namespace  IText.IO.Codec {
 
         public virtual void WriteChunk(byte[] chunkType, byte[] data) {
             OutputInt(data.Length);
-            outp.Write(chunkType, 0, 4);
-            outp.Write(data);
+            _out.Write(chunkType, 0, 4);
+            _out.Write(data);
             var c = Update_crc(-1, chunkType, 0, chunkType.Length);
             c = ~Update_crc(c, data, 0, data.Length);
             OutputInt(c);

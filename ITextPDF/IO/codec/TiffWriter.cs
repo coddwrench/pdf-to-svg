@@ -254,7 +254,7 @@ namespace  IText.IO.Codec {
 
         public static void CompressLZW(Stream stream, int predictor, byte[] b, int height, int samplesPerPixel, int
              stride) {
-            var lzwCompressor = new LZWCompressor(stream, 8, true);
+            var lzwCompressor = new LzwCompressor(stream, 8, true);
             var usePredictor = predictor == TIFFConstants.PREDICTOR_HORIZONTAL_DIFFERENCING;
             if (!usePredictor) {
                 lzwCompressor.Compress(b, 0, b.Length);
