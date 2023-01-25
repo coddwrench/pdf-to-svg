@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.3.32804.467
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PdfToSvgConsoleApp", "PdfToSvg\PdfToSvgConsoleApp.csproj", "{9D00D9C4-2A9C-4A04-B3AB-975F67433E40}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PdfToSvgConsoleApp", "PdfToSvgConsoleApp\PdfToSvgConsoleApp.csproj", "{9D00D9C4-2A9C-4A04-B3AB-975F67433E40}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Zlib", "Zlib\Zlib.csproj", "{AE4994A5-37F7-46CA-A61E-FD7C739CD72D}"
 EndProject
