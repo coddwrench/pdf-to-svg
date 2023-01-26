@@ -37,7 +37,6 @@ using System;
 
 namespace Zlib
 {
-
     internal sealed class Tree
     {
         private const int MaxBits = 15;

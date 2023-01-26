@@ -1,87 +1,11 @@
-
-/*
- *
-Copyright (c) 2000,2001,2002,2003 ymnk, JCraft,Inc. All rights reserved.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
-
-  1. Redistributions of source code must retain the above copyright notice,
-     this list of conditions and the following disclaimer.
-
-  2. Redistributions in binary form must reproduce the above copyright 
-     notice, this list of conditions and the following disclaimer in 
-     the documentation and/or other materials provided with the distribution.
-
-  3. The names of the authors may not be used to endorse or promote products
-     derived from this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED WARRANTIES,
-INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
-FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL JCRAFT,
-INC. OR ANY CONTRIBUTORS TO THIS SOFTWARE BE LIABLE FOR ANY DIRECT, INDIRECT,
-INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA,
-OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
-EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
-/*
- * This program is based on zlib-1.1.3, so all credit should go authors
- * Jean-loup Gailly(jloup@gzip.org) and Mark Adler(madler@alumni.caltech.edu)
- * and contributors of zlib.
- */
-
 using System;
-using System.Threading;
 
 namespace Zlib
 {
-
-    public enum CompressionMethod
-    {
-        Deflated = 8
-    }
-    public enum DeflateState
-    {
-        Unknown = -1,
-
-        // block not completed, need more input or more output
-        NeedMore = 0,
-
-        // block flush performed
-        BlockDone = 1,
-
-        // finish started, need only more output at next deflate
-        FinishStarted = 2,
-
-        // finish done, accept no more input or output
-        FinishDone = 3,
-    }
-
-    // The three kinds of block type
-    public enum DataType
-    {
-
-        Binary = 0,
-        Ascii = 1,
-        Unknown = 2
-    }
-
-    public enum ZlibStrategy
-    {
-
-        DefaultStrategy = 0,
-        Filtered = 1,
-        HuffmanOnly = 2
-    }
-
     internal sealed class Deflate
     {
 
         private const int MaxMemLevel = 9;
-
         private const int ZDefaultCompression = -1;
         private const int DefMemLevel = 8;
 
@@ -142,7 +66,6 @@ namespace Zlib
         private const int StaticTrees = 1;
         private const int DynTrees = 2;
 
-
         private const int BufSize = 8 * 2;
 
         // repeat previous bit length 3-6 times (2 bits of repeat count)
@@ -172,17 +95,19 @@ namespace Zlib
         private int _status; // as the name implies
 
         internal byte[] PendingBuf; // output still pending
-        internal int PendingBufSize; // size of pending_buf
+
+
+        private readonly int _pendingBufSize; // size of pending_buf
         internal int PendingOut; // next pending byte to output to the stream
         internal int Pending; // nb of bytes in the pending buffer
         internal bool Noheader; // suppress zlib header and adler32
         internal DataType DataType; // UNKNOWN, BINARY or ASCII
-        internal byte Method; // STORED (for zip only) or DEFLATED
+        internal CompressionMethod Method; // STORED (for zip only) or DEFLATED
         internal FlushLevel LastFlush; // value of flush param for previous deflate call
 
-        internal int WSize; // LZ77 window size (32K by default)
-        internal int WBits; // log2(w_size)  (8..16)
-        internal int WMask; // w_size - 1
+        private readonly int _windowSize; // LZ77 window size (32K by default)
+        private readonly int _windowBits; // log2(w_size)  (8..16)
+        private readonly int _windowMask; // w_size - 1
 
         private byte[] _window;
         // Sliding window. Input bytes are read into the second half of the window,
@@ -197,12 +122,12 @@ namespace Zlib
         // Actual size of window: 2*wSize, except when the user input buffer
         // is directly used as sliding window.
 
-        internal short[] Prev;
+        private short[] _prev;
         // Link to older string with same hash index. To limit the size of this
         // array to 64K, this link is maintained only for the last 32K strings.
         // An index in this array is thus a window index modulo 32K.
 
-        internal short[] Head; // Heads of the hash chains or NIL.
+        private short[] _head; // Heads of the hash chains or NIL.
 
         internal int InsH; // hash index of string to be inserted
         internal int HashSize; // number of elements in hash table
@@ -253,13 +178,13 @@ namespace Zlib
         // Stop searching when current match exceeds this
         internal int NiceMatch;
 
-        internal short[] DynLtree; // literal and length tree
-        internal short[] DynDtree; // distance tree
-        internal short[] BlTree; // Huffman tree for bit lengths
+        private readonly short[] _dynLtree = new short[HeapSize * 2]; // literal and length tree
+        private readonly short[] _dynDtree = new short[(2 * DCodes + 1) * 2]; // distance tree
+        private readonly short[] _blTree  = new short[(2 * BlCodes + 1) * 2]; // Huffman tree for bit lengths
 
-        internal Tree LDesc = new Tree(); // desc for literal tree
-        internal Tree DDesc = new Tree(); // desc for distance tree
-        internal Tree BlDesc = new Tree(); // desc for bit length tree
+        private readonly Tree _lDesc = new Tree(); // desc for literal tree
+         private readonly Tree _dDesc = new Tree(); // desc for distance tree
+         private readonly Tree _blDesc = new Tree(); // desc for bit length tree
 
         // number of codes at each bit length for an optimal tree
         internal short[] BlCount = new short[MaxBits + 1];
@@ -276,7 +201,7 @@ namespace Zlib
         // Depth of each subtree used as tie breaker for trees of equal frequency
         internal byte[] Depth = new byte[2 * LCodes + 1];
 
-        internal int LBuf; // index for literals or lengths */
+        private readonly int _lBuf; // index for literals or lengths */
 
         // Size of match buffer for literals/lengths.  There are 4 reasons for
         // limiting lit_bufsize to 64K:
@@ -303,7 +228,7 @@ namespace Zlib
         // the same number of elements. To use different lengths, an extra flag
         // array would be necessary.
 
-        internal int DBuf; // index of pendig_buf
+        private readonly int _dBuf; // index of pendig_buf
 
         internal int OptLen; // bit length of current block with optimal trees
         internal int StaticLen; // bit length of current block with static trees
@@ -318,21 +243,67 @@ namespace Zlib
         // are always zero.
         internal int BiValid;
 
-        internal Deflate()
+
+        internal Deflate(
+            int level,
+            int windowBits,
+            CompressionMethod? method = null,
+            int? memLevel = null,
+            ZlibStrategy? strategy = null)
         {
-            DynLtree = new short[HeapSize * 2];
-            DynDtree = new short[(2 * DCodes + 1) * 2]; // distance tree
-            BlTree = new short[(2 * BlCodes + 1) * 2]; // Huffman tree for bit lengths
+
+            if (level == ZDefaultCompression)
+                level = 6;
+            Level = level;
+
+            // undocumented feature: suppress zlib header
+            Noheader = windowBits < 0;
+            _windowBits = windowBits < 0 ? -windowBits : windowBits;
+            Strategy = strategy ?? ZlibStrategy.DefaultStrategy;
+            Method = method ?? CompressionMethod.Deflated;
+
+            var memoryLevel = memLevel ?? DefMemLevel;
+
+            if (memoryLevel < 1 || memoryLevel > MaxMemLevel ||
+                Method != CompressionMethod.Deflated ||
+                _windowBits < 9 || _windowBits > 15 || Level < 0 || Level > 9 ||
+                Strategy < 0 || Strategy > ZlibStrategy.HuffmanOnly)
+            {
+                throw new Exception($"Unable to initialize {nameof(Deflate)}");
+            }
+
+            _windowSize = 1 << _windowBits;
+            _windowMask = _windowSize - 1;
+
+            HashBits = memoryLevel + 7;
+            HashSize = 1 << HashBits;
+            HashMask = HashSize - 1;
+            HashShift = ((HashBits + MinMatch - 1) / MinMatch);
+
+            _window = new byte[_windowSize * 2];
+            _prev = new short[_windowSize];
+            _head = new short[HashSize];
+
+            LitBufsize = 1 << (memoryLevel + 6); // 16K elements by default
+
+            // We overlay pending_buf and d_buf+l_buf. This works since the average
+            // output size for (length,distance) codes is <= 24 bits.
+            PendingBuf = new byte[LitBufsize * 4];
+            _pendingBufSize = LitBufsize * 4;
+
+            _dBuf = LitBufsize / 2;
+            _lBuf = (1 + 2) * LitBufsize;
+
         }
 
         internal void lm_init()
         {
-            WindowSize = 2 * WSize;
+            WindowSize = 2 * _windowSize;
 
-            Head[HashSize - 1] = 0;
+            _head[HashSize - 1] = 0;
             for (var i = 0; i < HashSize - 1; i++)
             {
-                Head[i] = 0;
+                _head[i] = 0;
             }
 
             // Set the default configuration parameters:
@@ -353,14 +324,14 @@ namespace Zlib
         internal void tr_init()
         {
 
-            LDesc.DynTree = DynLtree;
-            LDesc.StatDesc = StaticTree.StaticLDesc;
+            _lDesc.DynTree = _dynLtree;
+            _lDesc.StatDesc = StaticTree.StaticLDesc;
 
-            DDesc.DynTree = DynDtree;
-            DDesc.StatDesc = StaticTree.StaticDDesc;
+            _dDesc.DynTree = _dynDtree;
+            _dDesc.StatDesc = StaticTree.StaticDDesc;
 
-            BlDesc.DynTree = BlTree;
-            BlDesc.StatDesc = StaticTree.StaticBlDesc;
+            _blDesc.DynTree = _blTree;
+            _blDesc.StatDesc = StaticTree.StaticBlDesc;
 
             BiBuf = 0;
             BiValid = 0;
@@ -373,11 +344,11 @@ namespace Zlib
         internal void init_block()
         {
             // Initialize the trees.
-            for (var i = 0; i < LCodes; i++) DynLtree[i * 2] = 0;
-            for (var i = 0; i < DCodes; i++) DynDtree[i * 2] = 0;
-            for (var i = 0; i < BlCodes; i++) BlTree[i * 2] = 0;
+            for (var i = 0; i < LCodes; i++) _dynLtree[i * 2] = 0;
+            for (var i = 0; i < DCodes; i++) _dynDtree[i * 2] = 0;
+            for (var i = 0; i < BlCodes; i++) _blTree[i * 2] = 0;
 
-            DynLtree[EndBlock * 2] = 1;
+            _dynLtree[EndBlock * 2] = 1;
             OptLen = StaticLen = 0;
             LastLit = Matches = 0;
         }
@@ -455,20 +426,20 @@ namespace Zlib
 
                 if (count < minCount)
                 {
-                    BlTree[curlen * 2] += (short) count;
+                    _blTree[curlen * 2] += (short) count;
                 }
                 else if (curlen != 0)
                 {
-                    if (curlen != prevlen) BlTree[curlen * 2]++;
-                    BlTree[Rep36 * 2]++;
+                    if (curlen != prevlen) _blTree[curlen * 2]++;
+                    _blTree[Rep36 * 2]++;
                 }
                 else if (count <= 10)
                 {
-                    BlTree[Repz310 * 2]++;
+                    _blTree[Repz310 * 2]++;
                 }
                 else
                 {
-                    BlTree[Repz11138 * 2]++;
+                    _blTree[Repz11138 * 2]++;
                 }
 
                 count = 0;
@@ -498,11 +469,11 @@ namespace Zlib
             int maxBlindex; // index of last bit length code of non zero freq
 
             // Determine the bit length frequencies for literal and distance trees
-            scan_tree(DynLtree, LDesc.MaxCode);
-            scan_tree(DynDtree, DDesc.MaxCode);
+            scan_tree(_dynLtree, _lDesc.MaxCode);
+            scan_tree(_dynDtree, _dDesc.MaxCode);
 
             // Build the bit length tree:
-            BlDesc.build_tree(this);
+            _blDesc.build_tree(this);
             // opt_len now includes the length of the tree representations, except
             // the lengths of the bit lengths codes and the 5+5+4 bits for the counts.
 
@@ -511,7 +482,7 @@ namespace Zlib
             // 3 but the actual value used is 4.)
             for (maxBlindex = BlCodes - 1; maxBlindex >= 3; maxBlindex--)
             {
-                if (BlTree[Tree.BlOrder[maxBlindex] * 2 + 1] != 0) break;
+                if (_blTree[Tree.BlOrder[maxBlindex] * 2 + 1] != 0) break;
             }
 
             // Update opt_len to include the bit length tree and counts
@@ -533,11 +504,11 @@ namespace Zlib
             send_bits(blcodes - 4, 4); // not -3 as stated in appnote.txt
             for (rank = 0; rank < blcodes; rank++)
             {
-                send_bits(BlTree[Tree.BlOrder[rank] * 2 + 1], 3);
+                send_bits(_blTree[Tree.BlOrder[rank] * 2 + 1], 3);
             }
 
-            send_tree(DynLtree, lcodes - 1); // literal tree
-            send_tree(DynDtree, dcodes - 1); // distance tree
+            send_tree(_dynLtree, lcodes - 1); // literal tree
+            send_tree(_dynDtree, dcodes - 1); // distance tree
         }
 
         // Send a literal or distance tree in compressed form, using the codes in
@@ -573,28 +544,28 @@ namespace Zlib
                 {
                     do
                     {
-                        send_code(curlen, BlTree);
+                        send_code(curlen, _blTree);
                     } while (--count != 0);
                 }
                 else if (curlen != 0)
                 {
                     if (curlen != prevlen)
                     {
-                        send_code(curlen, BlTree);
+                        send_code(curlen, _blTree);
                         count--;
                     }
 
-                    send_code(Rep36, BlTree);
+                    send_code(Rep36, _blTree);
                     send_bits(count - 3, 2);
                 }
                 else if (count <= 10)
                 {
-                    send_code(Repz310, BlTree);
+                    send_code(Repz310, _blTree);
                     send_bits(count - 3, 3);
                 }
                 else
                 {
-                    send_code(Repz11138, BlTree);
+                    send_code(Repz11138, _blTree);
                     send_bits(count - 11, 7);
                 }
 
@@ -704,24 +675,24 @@ namespace Zlib
         )
         {
 
-            PendingBuf[DBuf + LastLit * 2] = (byte) (dist >> 8);
-            PendingBuf[DBuf + LastLit * 2 + 1] = (byte) dist;
+            PendingBuf[_dBuf + LastLit * 2] = (byte) (dist >> 8);
+            PendingBuf[_dBuf + LastLit * 2 + 1] = (byte) dist;
 
-            PendingBuf[LBuf + LastLit] = (byte) lc;
+            PendingBuf[_lBuf + LastLit] = (byte) lc;
             LastLit++;
 
             if (dist == 0)
             {
                 // lc is the unmatched char
-                DynLtree[lc * 2]++;
+                _dynLtree[lc * 2]++;
             }
             else
             {
                 Matches++;
                 // Here, lc is the match length - MIN_MATCH
                 dist--; // dist = match distance - 1
-                DynLtree[(Tree.LengthCode[lc] + Literals + 1) * 2]++;
-                DynDtree[Tree.d_code(dist) * 2]++;
+                _dynLtree[(Tree.LengthCode[lc] + Literals + 1) * 2]++;
+                _dynDtree[Tree.d_code(dist) * 2]++;
             }
 
             if ((LastLit & 0x1fff) == 0 && Level > 2)
@@ -732,7 +703,7 @@ namespace Zlib
                 int dcode;
                 for (dcode = 0; dcode < DCodes; dcode++)
                 {
-                    outLength += (int) (DynDtree[dcode * 2] *
+                    outLength += (int) (_dynDtree[dcode * 2] *
                                         (5L + Tree.ExtraDBits[dcode]));
                 }
 
@@ -749,19 +720,15 @@ namespace Zlib
         // Send the block data compressed using the given Huffman trees
         internal void compress_block(short[] ltree, short[] dtree)
         {
-            int dist; // distance of matched string
-            int lc; // match length or unmatched char (if dist == 0)
             var lx = 0; // running index in l_buf
-            int code; // the code to send
-            int extra; // number of extra bits to send
 
             if (LastLit != 0)
             {
                 do
                 {
-                    dist = ((PendingBuf[DBuf + lx * 2] << 8) & 0xff00) |
-                           (PendingBuf[DBuf + lx * 2 + 1] & 0xff);
-                    lc = (PendingBuf[LBuf + lx]) & 0xff;
+                    var dist = ((PendingBuf[_dBuf + lx * 2] << 8) & 0xff00) |
+                               (PendingBuf[_dBuf + lx * 2 + 1] & 0xff); // distance of matched string
+                    var lc = (PendingBuf[_lBuf + lx]) & 0xff; // match length or unmatched char (if dist == 0)
                     lx++;
 
                     if (dist == 0)
@@ -771,10 +738,10 @@ namespace Zlib
                     else
                     {
                         // Here, lc is the match length - MIN_MATCH
-                        code = Tree.LengthCode[lc];
+                        int code = Tree.LengthCode[lc]; // the code to send
 
                         send_code(code + Literals + 1, ltree); // send the length code
-                        extra = Tree.ExtraLBits[code];
+                        var extra = Tree.ExtraLBits[code]; // number of extra bits to send
                         if (extra != 0)
                         {
                             lc -= Tree.BaseLength[code];
@@ -812,19 +779,19 @@ namespace Zlib
             var binFreq = 0;
             while (n < 7)
             {
-                binFreq += DynLtree[n * 2];
+                binFreq += _dynLtree[n * 2];
                 n++;
             }
 
             while (n < 128)
             {
-                asciiFreq += DynLtree[n * 2];
+                asciiFreq += _dynLtree[n * 2];
                 n++;
             }
 
             while (n < Literals)
             {
-                binFreq += DynLtree[n * 2];
+                binFreq += _dynLtree[n * 2];
                 n++;
             }
 
@@ -883,11 +850,6 @@ namespace Zlib
                 put_short((short) len);
                 put_short((short) ~len);
             }
-
-            //  while(len--!=0) {
-            //    put_byte(window[buf+index]);
-            //    index++;
-            //  }
             put_byte(_window, buf, len);
         }
 
@@ -915,9 +877,9 @@ namespace Zlib
             var maxBlockSize = 0xffff;
             int maxStart;
 
-            if (maxBlockSize > PendingBufSize - 5)
+            if (maxBlockSize > _pendingBufSize - 5)
             {
-                maxBlockSize = PendingBufSize - 5;
+                maxBlockSize = _pendingBufSize - 5;
             }
 
             // Copy as much as possible from input to output:
@@ -949,7 +911,7 @@ namespace Zlib
 
                 // Flush if we may have to slide, otherwise block_start may become
                 // negative and the data will be gone:
-                if (Strstart - BlockStart >= WSize - MinLookahead)
+                if (Strstart - BlockStart >= _windowSize - MinLookahead)
                 {
                     flush_block_only(false);
                     if (_stream.AvailOut == 0) return DeflateState.NeedMore;
@@ -990,9 +952,9 @@ namespace Zlib
                 if (DataType == DataType.Unknown) set_data_type();
 
                 // Construct the literal and distance trees
-                LDesc.build_tree(this);
+                _lDesc.build_tree(this);
 
-                DDesc.build_tree(this);
+                _dDesc.build_tree(this);
 
                 // At this point, opt_len and static_len are the total bit lengths of
                 // the compressed block data, excluding the tree representations.
@@ -1030,8 +992,8 @@ namespace Zlib
             else
             {
                 send_bits((DynTrees << 1) + (eof ? 1 : 0), 3);
-                send_all_trees(LDesc.MaxCode + 1, DDesc.MaxCode + 1, maxBlindex + 1);
-                compress_block(DynLtree, DynDtree);
+                send_all_trees(_lDesc.MaxCode + 1, _dDesc.MaxCode + 1, maxBlindex + 1);
+                compress_block(_dynLtree, _dynDtree);
             }
 
             // The above check is made mod 2^32, for files larger than 512 MB
@@ -1066,7 +1028,7 @@ namespace Zlib
                 // Deal with !@#$% 64K limit:
                 if (more == 0 && Strstart == 0 && Lookahead == 0)
                 {
-                    more = WSize;
+                    more = _windowSize;
                 }
                 else if (more == -1)
                 {
@@ -1077,12 +1039,12 @@ namespace Zlib
                     // If the window is almost full and there is insufficient lookahead,
                     // move the upper half to the lower one to make room in the upper half.
                 }
-                else if (Strstart >= WSize + WSize - MinLookahead)
+                else if (Strstart >= _windowSize + _windowSize - MinLookahead)
                 {
-                    Array.Copy(_window, WSize, _window, 0, WSize);
-                    MatchStart -= WSize;
-                    Strstart -= WSize; // we now have strstart >= MAX_DIST
-                    BlockStart -= WSize;
+                    Array.Copy(_window, _windowSize, _window, 0, _windowSize);
+                    MatchStart -= _windowSize;
+                    Strstart -= _windowSize; // we now have strstart >= MAX_DIST
+                    BlockStart -= _windowSize;
 
                     // Slide the hash table (could be avoided with 32 bit values
                     // at the expense of memory usage). We slide even when level == 0
@@ -1094,21 +1056,21 @@ namespace Zlib
                     p = n;
                     do
                     {
-                        m = (Head[--p] & 0xffff);
-                        Head[p] = (short) (m >= WSize ? (m - WSize) : 0);
+                        m = (_head[--p] & 0xffff);
+                        _head[p] = (short) (m >= _windowSize ? (m - _windowSize) : 0);
                     } while (--n != 0);
 
-                    n = WSize;
+                    n = _windowSize;
                     p = n;
                     do
                     {
-                        m = (Prev[--p] & 0xffff);
-                        Prev[p] = (short) (m >= WSize ? (m - WSize) : 0);
+                        m = (_prev[--p] & 0xffff);
+                        _prev[p] = (short) (m >= _windowSize ? (m - _windowSize) : 0);
                         // If n is not on any hash chain, prev[n] is garbage but
                         // its value will never be used.
                     } while (--n != 0);
 
-                    more += WSize;
+                    more += _windowSize;
                 }
 
                 if (_stream.AvailIn == 0) return;
@@ -1173,16 +1135,16 @@ namespace Zlib
                     InsH = (((InsH) << HashShift) ^ (_window[(Strstart) + (MinMatch - 1)] & 0xff)) & HashMask;
 
                     //  prev[strstart&w_mask]=hash_head=head[ins_h];
-                    hashHead = (Head[InsH] & 0xffff);
-                    Prev[Strstart & WMask] = Head[InsH];
-                    Head[InsH] = (short) Strstart;
+                    hashHead = (_head[InsH] & 0xffff);
+                    _prev[Strstart & _windowMask] = _head[InsH];
+                    _head[InsH] = (short) Strstart;
                 }
 
                 // Find the longest match, discarding those <= prev_length.
                 // At this point we have always match_length < MIN_MATCH
 
                 if (hashHead != 0L &&
-                    ((Strstart - hashHead) & 0xffff) <= WSize - MinLookahead
+                    ((Strstart - hashHead) & 0xffff) <= _windowSize - MinLookahead
                    )
                 {
                     // To simplify the code, we prevent matches with the string
@@ -1215,9 +1177,9 @@ namespace Zlib
 
                             InsH = ((InsH << HashShift) ^ (_window[(Strstart) + (MinMatch - 1)] & 0xff)) & HashMask;
                             //      prev[strstart&w_mask]=hash_head=head[ins_h];
-                            hashHead = (Head[InsH] & 0xffff);
-                            Prev[Strstart & WMask] = Head[InsH];
-                            Head[InsH] = (short) Strstart;
+                            hashHead = (_head[InsH] & 0xffff);
+                            _prev[Strstart & _windowMask] = _head[InsH];
+                            _head[InsH] = (short) Strstart;
 
                             // strstart never exceeds WSIZE-MAX_MATCH, so there are
                             // always MIN_MATCH bytes ahead.
@@ -1298,9 +1260,9 @@ namespace Zlib
                 {
                     InsH = (((InsH) << HashShift) ^ (_window[(Strstart) + (MinMatch - 1)] & 0xff)) & HashMask;
                     //  prev[strstart&w_mask]=hash_head=head[ins_h];
-                    hashHead = (Head[InsH] & 0xffff);
-                    Prev[Strstart & WMask] = Head[InsH];
-                    Head[InsH] = (short) Strstart;
+                    hashHead = (_head[InsH] & 0xffff);
+                    _prev[Strstart & _windowMask] = _head[InsH];
+                    _head[InsH] = (short) Strstart;
                 }
 
                 // Find the longest match, discarding those <= prev_length.
@@ -1309,7 +1271,7 @@ namespace Zlib
                 MatchLength = MinMatch - 1;
 
                 if (hashHead != 0 && PrevLength < MaxLazyMatch &&
-                    ((Strstart - hashHead) & 0xffff) <= WSize - MinLookahead
+                    ((Strstart - hashHead) & 0xffff) <= _windowSize - MinLookahead
                    )
                 {
                     // To simplify the code, we prevent matches with the string
@@ -1357,9 +1319,9 @@ namespace Zlib
                             InsH = (((InsH) << HashShift) ^ (_window[(Strstart) + (MinMatch - 1)] & 0xff)) &
                                    HashMask;
                             //prev[strstart&w_mask]=hash_head=head[ins_h];
-                            hashHead = (Head[InsH] & 0xffff);
-                            Prev[Strstart & WMask] = Head[InsH];
-                            Head[InsH] = (short) Strstart;
+                            hashHead = (_head[InsH] & 0xffff);
+                            _prev[Strstart & _windowMask] = _head[InsH];
+                            _head[InsH] = (short) Strstart;
                         }
                     } while (--PrevLength != 0);
 
@@ -1426,13 +1388,13 @@ namespace Zlib
             int match; // matched string
             int len; // length of current match
             var bestLen = PrevLength; // best match length so far
-            var limit = Strstart > (WSize - MinLookahead) ? Strstart - (WSize - MinLookahead) : 0;
+            var limit = Strstart > (_windowSize - MinLookahead) ? Strstart - (_windowSize - MinLookahead) : 0;
             var niceMatch = NiceMatch;
 
             // Stop when cur_match becomes <= limit. To simplify the code,
             // we prevent matches with the string of window index 0.
 
-            var wmask = WMask;
+            var wmask = _windowMask;
 
             var strend = Strstart + MaxMatch;
             var scanEnd1 = _window[scan + bestLen - 1];
@@ -1496,85 +1458,12 @@ namespace Zlib
                     scanEnd = _window[scan + bestLen];
                 }
 
-            } while ((curMatch = (Prev[curMatch & wmask] & 0xffff)) > limit
+            } while ((curMatch = (_prev[curMatch & wmask] & 0xffff)) > limit
                      && --chainLength != 0);
 
             if (bestLen <= Lookahead)
                 return bestLen;
             return Lookahead;
-        }
-
-        internal ZStreamState DeflateInit(ZStream strm, int level, int bits)
-        {
-            return DeflateInit2(strm, level, CompressionMethod.Deflated, bits, DefMemLevel,
-                ZlibStrategy.DefaultStrategy);
-        }
-
-        internal ZStreamState DeflateInit(ZStream strm, int level)
-        {
-            return DeflateInit(strm, level, Utils.MaxWBits);
-        }
-
-        internal ZStreamState DeflateInit2(ZStream strm, 
-            int level, CompressionMethod method, 
-            int windowBits,
-            int memLevel, ZlibStrategy strategy)
-        {
-            var noheader = false;
-
-            strm.Msg = null;
-
-            if (level == ZDefaultCompression) level = 6;
-
-            if (windowBits < 0)
-            {
-                // undocumented feature: suppress zlib header
-                noheader = true;
-                windowBits = -windowBits;
-            }
-
-            if (memLevel < 1 || memLevel > MaxMemLevel ||
-                method != CompressionMethod.Deflated ||
-                windowBits < 9 || windowBits > 15 || level < 0 || level > 9 ||
-                strategy < 0 || strategy > ZlibStrategy.HuffmanOnly)
-            {
-                return ZStreamState.StreamError;
-            }
-
-            strm.DeflateState = this;
-
-            Noheader = noheader;
-            WBits = windowBits;
-            WSize = 1 << WBits;
-            WMask = WSize - 1;
-
-            HashBits = memLevel + 7;
-            HashSize = 1 << HashBits;
-            HashMask = HashSize - 1;
-            HashShift = ((HashBits + MinMatch - 1) / MinMatch);
-
-            _window = new byte[WSize * 2];
-            Prev = new short[WSize];
-            Head = new short[HashSize];
-
-            LitBufsize = 1 << (memLevel + 6); // 16K elements by default
-
-            // We overlay pending_buf and d_buf+l_buf. This works since the average
-            // output size for (length,distance) codes is <= 24 bits.
-            PendingBuf = new byte[LitBufsize * 4];
-            PendingBufSize = LitBufsize * 4;
-
-            DBuf = LitBufsize / 2;
-            LBuf = (1 + 2) * LitBufsize;
-
-            Level = level;
-
-            //System.out.println("level="+level);
-
-            Strategy = strategy;
-            Method = (byte) method;
-
-            return DeflateReset(strm);
         }
 
         internal ZStreamState DeflateReset(ZStream strm)
@@ -1593,6 +1482,7 @@ namespace Zlib
 
             tr_init();
             lm_init();
+
             return ZStreamState.Ok;
         }
 
@@ -1605,8 +1495,8 @@ namespace Zlib
 
             // Deallocate in reverse order of allocations:
             PendingBuf = null;
-            Head = null;
-            Prev = null;
+            _head = null;
+            _prev = null;
             _window = null;
             // free
             // dstate=null;
@@ -1659,9 +1549,9 @@ namespace Zlib
             strm.Adler = Utils.Adler32(strm.Adler, dictionary, 0, dictLength);
 
             if (length < MinMatch) return ZStreamState.Ok;
-            if (length > WSize - MinLookahead)
+            if (length > _windowSize - MinLookahead)
             {
-                length = WSize - MinLookahead;
+                length = _windowSize - MinLookahead;
                 index = dictLength - length; // use the tail of the dictionary
             }
 
@@ -1679,8 +1569,8 @@ namespace Zlib
             for (var n = 0; n <= length - MinMatch; n++)
             {
                 InsH = (((InsH) << HashShift) ^ (_window[(n) + (MinMatch - 1)] & 0xff)) & HashMask;
-                Prev[n & WMask] = Head[InsH];
-                Head[InsH] = (short) n;
+                _prev[n & _windowMask] = _head[InsH];
+                _head[InsH] = (short) n;
             }
 
             return ZStreamState.Ok;
@@ -1707,14 +1597,14 @@ namespace Zlib
                 return ZStreamState.BufError;
             }
 
-            this._stream = strm; // just in case
+            _stream = strm; // just in case
             var oldFlush = LastFlush;
             LastFlush = flush;
 
             // Write the zlib header
             if (_status == InitState)
             {
-                var header = ((int)CompressionMethod.Deflated + ((WBits - 8) << 4)) << 8;
+                var header = ((int)CompressionMethod.Deflated + ((_windowBits - 8) << 4)) << 8;
                 var levelFlags = ((Level - 1) & 0xff) >> 1;
 
                 if (levelFlags > 3) levelFlags = 3;
@@ -1724,8 +1614,7 @@ namespace Zlib
 
                 _status = BusyState;
                 PutShortMsb(header);
-
-
+                
                 // Save the adler32 of the preset dictionary:
                 if (Strstart != 0)
                 {
@@ -1825,7 +1714,7 @@ namespace Zlib
                         {
                             //state.head[s.hash_size-1]=0;
                             for (var i = 0; i < HashSize /*-1*/; i++) // forget history
-                                Head[i] = 0;
+                                _head[i] = 0;
                         }
                     }
 

@@ -39,10 +39,6 @@ using System;
 
 namespace Zlib {
 
-
-
-
-
     internal sealed class InfCodes
     {
 

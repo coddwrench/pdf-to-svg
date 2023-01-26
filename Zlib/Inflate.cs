@@ -35,15 +35,10 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 namespace Zlib
 {
-
     internal sealed class Inflate
     {
-
         // preset dictionary flag in zlib header
         private const int PresetDict = 0x20;
-
-
-        internal const int ZFinish = 4;
 
         private const int ZDeflated = 8;
 
