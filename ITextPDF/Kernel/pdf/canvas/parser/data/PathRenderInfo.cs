@@ -233,14 +233,14 @@ namespace IText.Kernel.Pdf.Canvas.Parser.Data {
         /// </returns>
         public virtual Matrix GetCtm() {
             CheckGraphicsState();
-            return gs.GetCtm();
+            return Gs.GetCtm();
         }
 
         /// <summary>Gets the path's line width.</summary>
         /// <returns>the path's line width</returns>
         public virtual float GetLineWidth() {
             CheckGraphicsState();
-            return gs.GetLineWidth();
+            return Gs.GetLineWidth();
         }
 
         /// <summary>Gets the line cap style.</summary>
@@ -251,7 +251,7 @@ namespace IText.Kernel.Pdf.Canvas.Parser.Data {
         /// <returns>the line cap style value</returns>
         public virtual int GetLineCapStyle() {
             CheckGraphicsState();
-            return gs.GetLineCapStyle();
+            return Gs.GetLineCapStyle();
         }
 
         /// <summary>Gets the line join style.</summary>
@@ -262,14 +262,14 @@ namespace IText.Kernel.Pdf.Canvas.Parser.Data {
         /// <returns>the line join style value</returns>
         public virtual int GetLineJoinStyle() {
             CheckGraphicsState();
-            return gs.GetLineJoinStyle();
+            return Gs.GetLineJoinStyle();
         }
 
         /// <summary>Gets the miter limit.</summary>
         /// <returns>the miter limit</returns>
         public virtual float GetMiterLimit() {
             CheckGraphicsState();
-            return gs.GetMiterLimit();
+            return Gs.GetMiterLimit();
         }
 
         /// <summary>Gets the path's dash pattern.</summary>
@@ -279,7 +279,7 @@ namespace IText.Kernel.Pdf.Canvas.Parser.Data {
         /// </returns>
         public virtual PdfArray GetLineDashPattern() {
             CheckGraphicsState();
-            return gs.GetDashPattern();
+            return Gs.GetDashPattern();
         }
 
         /// <summary>Gets the path's stroke color.</summary>
@@ -289,7 +289,7 @@ namespace IText.Kernel.Pdf.Canvas.Parser.Data {
         /// </returns>
         public virtual Color GetStrokeColor() {
             CheckGraphicsState();
-            return gs.GetStrokeColor();
+            return Gs.GetStrokeColor();
         }
 
         /// <summary>Gets the path's fill color.</summary>
@@ -299,7 +299,7 @@ namespace IText.Kernel.Pdf.Canvas.Parser.Data {
         /// </returns>
         public virtual Color GetFillColor() {
             CheckGraphicsState();
-            return gs.GetFillColor();
+            return Gs.GetFillColor();
         }
 
         /// <summary>Gets hierarchy of the canvas tags that wraps given text.</summary>

@@ -45,18 +45,21 @@ using System;
 using IText.IO;
 
 namespace IText.Kernel.Pdf.Canvas.Parser.Data {
-    public class AbstractRenderInfo : IEventData {
-        protected internal CanvasGraphicsState gs;
+    public class AbstractRenderInfo : IEventData
+    {
 
+        protected internal CanvasGraphicsState? GraphicsState => _graphicsState;
+
+        private CanvasGraphicsState? _graphicsState;
         private bool _graphicsStateIsPreserved;
 
-        public AbstractRenderInfo(CanvasGraphicsState gs) {
-            this.gs = gs;
+        public AbstractRenderInfo(CanvasGraphicsState graphicsState) {
+            _graphicsState = graphicsState;
         }
 
-        public virtual CanvasGraphicsState GetGraphicsState() {
+        public virtual CanvasGraphicsState? GetGraphicsState() {
             CheckGraphicsState();
-            return _graphicsStateIsPreserved ? gs : new CanvasGraphicsState(gs);
+            return _graphicsStateIsPreserved ? _graphicsState : new CanvasGraphicsState(GraphicsState!);
         }
 
         public virtual bool IsGraphicsStatePreserved() {
@@ -66,18 +69,18 @@ namespace IText.Kernel.Pdf.Canvas.Parser.Data {
         public virtual void PreserveGraphicsState() {
             CheckGraphicsState();
             _graphicsStateIsPreserved = true;
-            gs = new CanvasGraphicsState(gs);
+            _graphicsState = new CanvasGraphicsState(GraphicsState!);
         }
 
         public virtual void ReleaseGraphicsState() {
             if (!_graphicsStateIsPreserved) {
-                gs = null;
+                _graphicsState = null;
             }
         }
 
         // check if graphics state was released
         protected internal virtual void CheckGraphicsState() {
-            if (null == gs) {
+            if (null == GraphicsState) {
                 throw new InvalidOperationException(LogMessageConstant.GRAPHICS_STATE_WAS_DELETED);
             }
         }

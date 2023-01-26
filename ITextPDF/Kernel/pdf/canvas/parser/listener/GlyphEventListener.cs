@@ -73,7 +73,7 @@ namespace IText.Kernel.Pdf.Canvas.Parser.Listener {
         public virtual void EventOccurred(IEventData data, EventType type) {
             if (type.Equals(EventType.RENDER_TEXT)) {
                 var textRenderInfo = (TextRenderInfo)data;
-                foreach (var glyphRenderInfo in textRenderInfo.GetCharacterRenderInfos()) {
+                foreach (var glyphRenderInfo in textRenderInfo.CharacterRenderInfos) {
                     delegate_.EventOccurred(glyphRenderInfo, type);
                 }
             }

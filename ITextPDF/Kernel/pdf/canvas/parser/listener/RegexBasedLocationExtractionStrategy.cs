@@ -165,7 +165,7 @@ namespace IText.Kernel.Pdf.Canvas.Parser.Listener {
         /// </returns>
         protected internal virtual IList<CharacterRenderInfo> ToCRI(TextRenderInfo tri) {
             IList<CharacterRenderInfo> cris = new List<CharacterRenderInfo>();
-            foreach (var subTri in tri.GetCharacterRenderInfos()) {
+            foreach (var subTri in tri.CharacterRenderInfos) {
                 cris.Add(new CharacterRenderInfo(subTri));
             }
             return cris;

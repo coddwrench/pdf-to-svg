@@ -89,7 +89,7 @@ namespace ITextPdf2SVG.Listeners
                 return;
 
             var renderInfo = (TextRenderInfo) data;
-            var baseFont = renderInfo.GetFont();
+            var baseFont = renderInfo.Font;
 
             var fontProgram = baseFont.GetFontProgram();
             var originalFontName = fontProgram.ToString();
@@ -100,7 +100,7 @@ namespace ITextPdf2SVG.Listeners
             var bottomLeftText = renderInfo.GetBaseline().GetStartPoint();
             var tm = renderInfo.GetTextMatrix();
             var fontSize = new Vector(0, renderInfo.GetFontSize(), 0).Cross(tm).Length();
-            renderInfo.GetCharacterRenderInfos();
+            // renderInfo.GetCharacterRenderInfos();
             var fillColor = renderInfo.GetFillColor();
 
             var color = fillColor.ParseColor() ?? Color.Black;
@@ -111,10 +111,10 @@ namespace ITextPdf2SVG.Listeners
             float? endXPosition = null;
             float? startXPosition = null;
 
-            foreach (var textRenderInfo in renderInfo.GetCharacterRenderInfos())
+            foreach (var textRenderInfo in renderInfo.CharacterRenderInfos)
             {
-                var letter = textRenderInfo.Text();
-                var x = textRenderInfo.GetDescentLine()
+                var letter = textRenderInfo.Text;
+                var x = textRenderInfo.DescentLine
                     .GetStartPoint()
                     .Get(Vector.I1);
 
@@ -146,7 +146,7 @@ namespace ITextPdf2SVG.Listeners
                 }
 
                 sb.Append(letter);
-                endXPosition = textRenderInfo.GetDescentLine().GetEndPoint().Get(Vector.I1);
+                endXPosition = textRenderInfo.DescentLine.GetEndPoint().Get(Vector.I1);
             }
 
             if (sb.Length > 0 && startXPosition != null)

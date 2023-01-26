@@ -119,13 +119,13 @@ namespace IText.Kernel.Pdf.Canvas.Parser.Listener {
             }
             // determine bounding box
             IList<Point> points = new List<Point>();
-            points.Add(new Point(tri.GetDescentLine().GetStartPoint().Get(0), tri.GetDescentLine().GetStartPoint().Get
+            points.Add(new Point(tri.DescentLine.GetStartPoint().Get(0), tri.DescentLine.GetStartPoint().Get
                 (1)));
-            points.Add(new Point(tri.GetDescentLine().GetEndPoint().Get(0), tri.GetDescentLine().GetEndPoint().Get(1))
+            points.Add(new Point(tri.DescentLine.GetEndPoint().Get(0), tri.DescentLine.GetEndPoint().Get(1))
                 );
-            points.Add(new Point(tri.GetAscentLine().GetStartPoint().Get(0), tri.GetAscentLine().GetStartPoint().Get(1
+            points.Add(new Point(tri.AscentLine.GetStartPoint().Get(0), tri.AscentLine.GetStartPoint().Get(1
                 )));
-            points.Add(new Point(tri.GetAscentLine().GetEndPoint().Get(0), tri.GetAscentLine().GetEndPoint().Get(1)));
+            points.Add(new Point(tri.AscentLine.GetEndPoint().Get(0), tri.AscentLine.GetEndPoint().Get(1)));
             boundingBox = Rectangle.CalculateBBox(points);
         }
 
