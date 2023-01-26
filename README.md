@@ -14,7 +14,7 @@ Library for converting pdf documents to svg. The core of the project is [itext7]
 
 ```
 using IText.Kernel.Pdf;
-using RSB.ITextPDF.Pdf2Svg;
+using ITextPdf2SVG;
 ```
 
 ```
