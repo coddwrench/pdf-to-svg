@@ -7,7 +7,7 @@ using Svg;
 using Svg.Pathing;
 using Point = IText.Kernel.Geom.Point;
 
-namespace RSB.ITextPDF.Pdf2Svg
+namespace ITextPdf2SVG.Listeners
 {
 	public class BorderListener : FilteredEventListener
 	{

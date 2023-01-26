@@ -1,6 +1,6 @@
 ﻿using System.Drawing;
 
-namespace RSB.ITextPDF.Pdf2Svg
+namespace ITextPdf2SVG
 {
 	public static class ColorHelper
 	{

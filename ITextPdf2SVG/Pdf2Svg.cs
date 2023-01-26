@@ -3,10 +3,11 @@ using System.Drawing;
 using IText.Kernel.Pdf;
 using IText.Kernel.Pdf.Canvas.Parser;
 using IText.Kernel.Pdf.Canvas.Parser.Listener;
+using ITextPdf2SVG.Listeners;
 using Svg;
 using Svg.Transforms;
 
-namespace RSB.ITextPDF.Pdf2Svg
+namespace ITextPdf2SVG
 {
 	public class PdfToSvg
 	{
@@ -32,8 +33,10 @@ namespace RSB.ITextPDF.Pdf2Svg
 			listener.AttachEventListener(new TextListener(svg, pageSize));
 			listener.AttachEventListener(new ImageListener(svg, pageSize));
 			listener.AttachEventListener(new BorderListener(svg, pageSize));
-			;
-			var processor = new PdfCanvasProcessor(listener);
+			listener.AttachEventListener(new TextBlockListener(svg, pageSize));
+
+            
+            var processor = new PdfCanvasProcessor(listener);
 			processor.ProcessPageContent(page);
 
 			return new Pdf2SvgResult

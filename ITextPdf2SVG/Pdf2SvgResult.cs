@@ -2,7 +2,7 @@
 using IText.Kernel.Geom;
 using Svg;
 
-namespace RSB.ITextPDF.Pdf2Svg
+namespace ITextPdf2SVG
 {
 	public class Pdf2SvgResult
 	{

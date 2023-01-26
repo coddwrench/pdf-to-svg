@@ -1,7 +1,7 @@
 ﻿// See https://aka.ms/new-console-template for more information
 
 using IText.Kernel.Pdf;
-using RSB.ITextPDF.Pdf2Svg;
+using ITextPdf2SVG;
 
 namespace PdfToSvgConsoleApp;
 

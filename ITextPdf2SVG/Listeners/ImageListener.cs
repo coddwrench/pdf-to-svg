@@ -12,9 +12,8 @@ using Svg;
 using Svg.Transforms;
 using Rectangle = System.Drawing.Rectangle;
 
-namespace RSB.ITextPDF.Pdf2Svg
+namespace ITextPdf2SVG.Listeners
 {
-	
 
 	public class ImageListener : FilteredEventListener
 	{

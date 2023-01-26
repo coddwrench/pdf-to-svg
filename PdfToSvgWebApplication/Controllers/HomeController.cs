@@ -2,9 +2,9 @@
 using System.Xml.Linq;
 using IText.Kernel.Geom;
 using IText.Kernel.Pdf;
+using ITextPdf2SVG;
 using Microsoft.AspNetCore.Mvc;
 using PdfToSvgWebApp.Models;
-using RSB.ITextPDF.Pdf2Svg;
 
 namespace PdfToSvgWebApp.Controllers
 {

@@ -9,142 +9,160 @@ using IText.Kernel.Pdf.Canvas.Parser.Listener;
 using Svg;
 using Svg.Transforms;
 
-namespace RSB.ITextPDF.Pdf2Svg
+namespace ITextPdf2SVG.Listeners
 {
-	public class TextListener : FilteredEventListener
-	{
-		private readonly SvgDocument _svg;
-		private SizeF _pageSize;
+    public class TextListener : FilteredEventListener
+    {
+        private readonly SvgDocument _svg;
+        private SizeF _pageSize;
 
-		private static readonly Regex _fontRegex = new Regex(@"(?<=\+)[a-zA-Z\s]+");
-		private static readonly Regex _fontStyleRegex = new Regex(@"[-,][\w\s]+$");
+        private static readonly Regex _fontRegex = new Regex(@"(?<=\+)[a-zA-Z\s]+");
+        private static readonly Regex _fontStyleRegex = new Regex(@"[-,][\w\s]+$");
 
-		public TextListener(SvgDocument svg, SizeF pageSize)
-		{
-			_svg = svg;
-			_pageSize = pageSize;
-		}
+        private bool _textBegin = false;
 
-		private static SvgFontStyle GetFontStyle(FontNames fontNames)
-		{
-			var fontName = fontNames.GetFontName();
-			var fontStyleRegex = _fontStyleRegex.Match(fontName);
-			var r = SvgFontStyle.Normal;
-			if (fontStyleRegex.Success)
-			{
-				var result = fontStyleRegex.Value.ToLower();
-				if (result.Contains("oblique"))
-					r = SvgFontStyle.Oblique;
-				if (result.Contains("italic"))
-					r = SvgFontStyle.Italic;
-			}
-			return r;
-		}
+        public TextListener(SvgDocument svg, SizeF pageSize)
+        {
+            _svg = svg;
+            _pageSize = pageSize;
+        }
 
-		private static SvgFontWeight GetFontWeight(FontNames fontNames)
-		{
-			var fontName = fontNames.GetFontName();
-			var fontStyleRegex = _fontStyleRegex.Match(fontName);
-			var r = SvgFontWeight.Normal;
-			if (fontStyleRegex.Success)
-			{
-				var result = fontStyleRegex.Value.ToLower();
-				if (result.Contains("bold"))
-					r = SvgFontWeight.Bold;
-				else if (result.Contains("bolder"))
-					r = SvgFontWeight.Bolder;
-				else if (result.Contains("lighter"))
-					r = SvgFontWeight.Lighter;
-			}
+        private static SvgFontStyle GetFontStyle(FontNames fontNames)
+        {
+            var fontName = fontNames.GetFontName();
+            var fontStyleRegex = _fontStyleRegex.Match(fontName);
+            var r = SvgFontStyle.Normal;
+            if (fontStyleRegex.Success)
+            {
+                var result = fontStyleRegex.Value.ToLower();
+                if (result.Contains("oblique"))
+                    r = SvgFontStyle.Oblique;
+                if (result.Contains("italic"))
+                    r = SvgFontStyle.Italic;
+            }
 
-			return r;
-		}
+            return r;
+        }
 
-		public string FontFamilyResolver(string font)
-		{
-			if (font.Contains("ArialMT"))
-				return "Arial";
-			if (font.Contains("Roboto"))
-				return "Roboto";
-			return font;
-		}
+        private static SvgFontWeight GetFontWeight(FontNames fontNames)
+        {
+            var fontName = fontNames.GetFontName();
+            var fontStyleRegex = _fontStyleRegex.Match(fontName);
+            var r = SvgFontWeight.Normal;
+            if (fontStyleRegex.Success)
+            {
+                var result = fontStyleRegex.Value.ToLower();
+                if (result.Contains("bold"))
+                    r = SvgFontWeight.Bold;
+                else if (result.Contains("bolder"))
+                    r = SvgFontWeight.Bolder;
+                else if (result.Contains("lighter"))
+                    r = SvgFontWeight.Lighter;
+            }
 
-		public override void EventOccurred(IEventData data, EventType type)
-		{
-			if (!type.Equals(EventType.RENDER_TEXT))
-				return;
+            return r;
+        }
 
-			var renderInfo = (TextRenderInfo)data;
-			var baseFont = renderInfo.GetFont();
+        public string FontFamilyResolver(string font)
+        {
+            if (font.Contains("ArialMT"))
+                return "Arial";
+            if (font.Contains("Roboto"))
+                return "Roboto";
+            return font;
+        }
 
-			var fontProgram = baseFont.GetFontProgram();
-			var originalFontName = fontProgram.ToString();
-			var fontRegex = _fontRegex.Match(originalFontName);
-			var fontName = fontRegex.Success ? fontRegex.Value : originalFontName;
+        public override void EventOccurred(IEventData data, EventType type)
+        {
+            if (!_textBegin && type.Equals(EventType.BEGIN_TEXT))
+            {
+                _textBegin = true;
+                return;
+            }
+            if (_textBegin && type.Equals(EventType.END_TEXT))
+            {
+                _textBegin = false;
+                return;
+            }
 
-			var fontNames = fontProgram.GetFontNames();
-			var bottomLeftText = renderInfo.GetBaseline().GetStartPoint();
-			var tm = renderInfo.GetTextMatrix();
-			var fontSize = new Vector(0, renderInfo.GetFontSize(), 0).Cross(tm).Length();
-			renderInfo.GetCharacterRenderInfos();
-			var fillColor = renderInfo.GetFillColor();
+            if (!_textBegin || !type.Equals(EventType.RENDER_TEXT))
+                return;
 
-			var color = fillColor.ParseColor() ?? Color.Black;
+            var renderInfo = (TextRenderInfo) data;
+            var baseFont = renderInfo.GetFont();
 
-			var y = _pageSize.Height - bottomLeftText.Get(Vector.I2);
-			var sb = new StringBuilder();
-			float? endXPosition = null;
-			float? startXPosition = null;
-			foreach (var c in renderInfo.GetCharacterRenderInfos())
-			{
-				var letter = c.GetText();
-				var x = c.GetDescentLine().GetStartPoint().Get(Vector.I1);
+            var fontProgram = baseFont.GetFontProgram();
+            var originalFontName = fontProgram.ToString();
+            var fontRegex = _fontRegex.Match(originalFontName);
+            var fontName = fontRegex.Success ? fontRegex.Value : originalFontName;
 
-				if (!startXPosition.HasValue)
-					startXPosition = x;
+            var fontNames = fontProgram.GetFontNames();
+            var bottomLeftText = renderInfo.GetBaseline().GetStartPoint();
+            var tm = renderInfo.GetTextMatrix();
+            var fontSize = new Vector(0, renderInfo.GetFontSize(), 0).Cross(tm).Length();
+            renderInfo.GetCharacterRenderInfos();
+            var fillColor = renderInfo.GetFillColor();
 
-				if (string.IsNullOrWhiteSpace(letter) ||
-				    endXPosition != null && (endXPosition - x > renderInfo.GetCharSpacing() / 2f))
-				{
-					if (!string.IsNullOrWhiteSpace(letter))
-						sb.Append(letter);
+            var color = fillColor.ParseColor() ?? Color.Black;
 
-					if (sb.Length > 0)
-					{
-						_svg.Children.Add(new SvgText(sb.ToString())
-						{
-							FontFamily = FontFamilyResolver(fontName),
-							Transforms = new SvgTransformCollection {new SvgTranslate(startXPosition.Value, y)},
-							FontSize = new SvgUnit(fontSize),
-							Fill = new SvgColourServer(color),
-							FontWeight = GetFontWeight(fontNames),
-							FontStyle = GetFontStyle(fontNames)
-						});
-					}
+            var y = _pageSize.Height - bottomLeftText.Get(Vector.I2);
+            var sb = new StringBuilder();
 
-					endXPosition = null;
-					startXPosition = null;
-					sb = new StringBuilder();
-					continue;
-				}
+            float? endXPosition = null;
+            float? startXPosition = null;
 
-				sb.Append(letter);
-				endXPosition = c.GetDescentLine().GetEndPoint().Get(Vector.I1);
-			}
+            foreach (var textRenderInfo in renderInfo.GetCharacterRenderInfos())
+            {
+                var letter = textRenderInfo.GetText();
+                var x = textRenderInfo.GetDescentLine()
+                    .GetStartPoint()
+                    .Get(Vector.I1);
 
-			if (sb.Length > 0)
-			{
-				_svg.Children.Add(new SvgText(sb.ToString())
-				{
-					FontFamily = FontFamilyResolver(fontName),
-					Transforms = new SvgTransformCollection { new SvgTranslate(startXPosition.Value, y) },
-					FontSize = new SvgUnit(fontSize),
-					Fill = new SvgColourServer(color),
-					FontWeight = GetFontWeight(fontNames),
-					FontStyle = GetFontStyle(fontNames)
-				});
-			}
-			base.EventOccurred(data, type);
-		}
-	}
+                if (!startXPosition.HasValue)
+                    startXPosition = x;
+
+                if (string.IsNullOrWhiteSpace(letter) ||
+                    endXPosition != null && (endXPosition - x > renderInfo.GetCharSpacing() / 2f))
+                {
+                    if (!string.IsNullOrWhiteSpace(letter))
+                        sb.Append(letter);
+
+                    if (sb.Length > 0)
+                    {
+                        _svg.Children.Add(new SvgText(sb.ToString())
+                        {
+                            FontFamily = FontFamilyResolver(fontName),
+                            Transforms = new SvgTransformCollection {new SvgTranslate(startXPosition.Value, y)},
+                            FontSize = new SvgUnit(fontSize),
+                            Fill = new SvgColourServer(color),
+                            FontWeight = GetFontWeight(fontNames),
+                            FontStyle = GetFontStyle(fontNames)
+                        });
+                    }
+                    endXPosition = null;
+                    startXPosition = null;
+                    sb = new StringBuilder();
+                    continue;
+                }
+
+                sb.Append(letter);
+                endXPosition = textRenderInfo.GetDescentLine().GetEndPoint().Get(Vector.I1);
+            }
+
+            if (sb.Length > 0 && startXPosition != null)
+            {
+                _svg.Children.Add(new SvgText(sb.ToString())
+                {
+                    FontFamily = FontFamilyResolver(fontName),
+                    Transforms = new SvgTransformCollection {new SvgTranslate(startXPosition.Value, y)},
+                    FontSize = new SvgUnit(fontSize),
+                    Fill = new SvgColourServer(color),
+                    FontWeight = GetFontWeight(fontNames),
+                    FontStyle = GetFontStyle(fontNames)
+                });
+            }
+
+            base.EventOccurred(data, type);
+        }
+    }
 }
