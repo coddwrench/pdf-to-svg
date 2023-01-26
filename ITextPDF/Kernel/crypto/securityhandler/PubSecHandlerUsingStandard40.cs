@@ -72,8 +72,8 @@ namespace IText.Kernel.Crypto.Securityhandler {
         }
 
         protected internal override void InitKey(byte[] globalKey, int keyLength) {
-            mkey = new byte[keyLength / 8];
-            Array.Copy(globalKey, 0, mkey, 0, mkey.Length);
+            MasterKey = new byte[keyLength / 8];
+            Array.Copy(globalKey, 0, MasterKey, 0, MasterKey.Length);
         }
 
         protected internal override void SetPubSecSpecificHandlerDicEntries(PdfDictionary encryptionDictionary, bool

@@ -44,6 +44,8 @@ address: sales@itextpdf.com
 
 using System;
 using System.IO;
+using System.Numerics;
+using System.Security.Cryptography;
 using IText.IO;
 using IText.IO.Util;
 using IText.Kernel.Pdf;
@@ -100,8 +102,8 @@ namespace IText.Kernel.Crypto.Securityhandler
 			, int permissions, bool encryptMetadata, bool embeddedFilesOnly)
 		{
 			ownerPassword = GenerateOwnerPasswordIfNullOrEmpty(ownerPassword);
-			permissions |= PERMS_MASK_1_FOR_REVISION_3_OR_GREATER;
-			permissions &= PERMS_MASK_2;
+			permissions |= PermsMask1ForRevision3OrGreater;
+			permissions &= PermsMask2;
 			try
 			{
 				byte[] userKey;
@@ -162,7 +164,7 @@ namespace IText.Kernel.Crypto.Securityhandler
 				permsp[11] = (byte)'b';
 				ac = new AESCipherCBCnoPad(true, nextObjectKey);
 				aes256Perms = ac.ProcessBlock(permsp, 0, permsp.Length);
-				this.permissions = permissions;
+				this.Permissions = permissions;
 				this.encryptMetadata = encryptMetadata;
 				SetStandardHandlerDicEntries(encryptionDictionary, userKey, ownerKey);
 				SetAES256DicEntries(encryptionDictionary, oeKey, ueKey, aes256Perms, encryptMetadata, embeddedFilesOnly);
@@ -231,11 +233,11 @@ namespace IText.Kernel.Crypto.Securityhandler
 				var ueValue = GetIsoBytes(encryptionDictionary.GetAsString(PdfName.UE));
 				var perms = GetIsoBytes(encryptionDictionary.GetAsString(PdfName.Perms));
 				var pValue = (PdfNumber)encryptionDictionary.Get(PdfName.P);
-				permissions = pValue.LongValue();
+				Permissions = pValue.LongValue();
 				byte[] hash;
 				hash = ComputeHash(password, oValue, VALIDATION_SALT_OFFSET, SALT_LENGTH, uValue);
-				usedOwnerPassword = CompareArray(hash, oValue, 32);
-				if (usedOwnerPassword)
+				UsedOwnerPassword = CompareArray(hash, oValue, 32);
+				if (UsedOwnerPassword)
 				{
 					hash = ComputeHash(password, oValue, KEY_SALT_OFFSET, SALT_LENGTH, uValue);
 					var ac = new AESCipherCBCnoPad(false, hash);
@@ -263,14 +265,14 @@ namespace IText.Kernel.Crypto.Securityhandler
 										 | ((decPerms[3] & 0xff) << 24);
 				var encryptMetadata = decPerms[8] == (byte)'T';
 				var encryptMetadataEntry = encryptionDictionary.GetAsBool(PdfName.EncryptMetadata);
-				if (permissionsDecoded != permissions || encryptMetadataEntry != null && encryptMetadata != encryptMetadataEntry
+				if (permissionsDecoded != Permissions || encryptMetadataEntry != null && encryptMetadata != encryptMetadataEntry
 					)
 				{
 					var logger = LogManager.GetLogger(typeof(StandardHandlerUsingAes256));
 					logger.Error(LogMessageConstant.ENCRYPTION_ENTRIES_P_AND_ENCRYPT_METADATA_NOT_CORRESPOND_PERMS_ENTRY
 						);
 				}
-				permissions = permissionsDecoded;
+				Permissions = permissionsDecoded;
 				this.encryptMetadata = encryptMetadata;
 			}
 			catch (BadPasswordException ex)
@@ -288,80 +290,101 @@ namespace IText.Kernel.Crypto.Securityhandler
 			return ComputeHash(password, salt, saltOffset, saltLen, null);
 		}
 
-		private byte[] ComputeHash(byte[] password, byte[] salt, int saltOffset, int saltLen, byte[] userKey)
-		{
-			throw new NotImplementedException();
+        private byte[] ComputeHash(byte[] password, byte[] salt, int saltOffset, int saltLen, byte[] userKey)
+        {
+            using var sha256Hash = SHA256.Create();
 
-			/*var mdSha256 = DigestUtilities.GetDigest("SHA-256");
-            mdSha256.Update(password);
-            mdSha256.Update(salt, saltOffset, saltLen);
-            if (userKey != null) {
-                mdSha256.Update(userKey);
+            var tempDigest = new byte[password.Length];
+
+            sha256Hash.TransformBlock(password, 0, password.Length, tempDigest, 0);
+            sha256Hash.TransformBlock(salt, 0, salt.Length, tempDigest, 0);
+
+            if (userKey != null)
+            {
+                sha256Hash.TransformBlock(userKey, 0, userKey.Length, tempDigest, 0);
             }
-            var k = mdSha256.Digest();
-            if (isPdf2) {
+
+            sha256Hash.TransformFinalBlock(new byte[] { }, 0, 0);
+
+            var k = sha256Hash.Hash;
+            if (isPdf2)
+            {
                 // See 7.6.4.3.3 "Algorithm 2.B"
-                var mdSha384 = DigestUtilities.GetDigest("SHA-384");
-                var mdSha512 = DigestUtilities.GetDigest("SHA-512");
                 var userKeyLen = userKey != null ? userKey.Length : 0;
                 var passAndUserKeyLen = password.Length + userKeyLen;
                 // k1 repetition length
                 int k1RepLen;
                 var roundNum = 0;
-                while (true) {
+                while (true)
+                {
                     // a)
                     k1RepLen = passAndUserKeyLen + k.Length;
                     var k1 = new byte[k1RepLen * 64];
                     Array.Copy(password, 0, k1, 0, password.Length);
                     Array.Copy(k, 0, k1, password.Length, k.Length);
-                    if (userKey != null) {
+                    if (userKey != null)
+                    {
                         Array.Copy(userKey, 0, k1, password.Length + k.Length, userKeyLen);
                     }
-                    for (var i = 1; i < 64; ++i) {
+
+                    for (var i = 1; i < 64; ++i)
+                    {
                         Array.Copy(k1, 0, k1, k1RepLen * i, k1RepLen);
                     }
+
                     // b)
                     var cipher = new AESCipherCBCnoPad(true, JavaUtil.ArraysCopyOf(k, 16), JavaUtil.ArraysCopyOfRange
                         (k, 16, 32));
                     var e = cipher.ProcessBlock(k1, 0, k1.Length);
                     // c)
-                    IDigest md = null;
-                    var i_1 = new BigInteger(1, JavaUtil.ArraysCopyOf(e, 16));
-                    var remainder = i_1.Remainder(BigInteger.ValueOf(3)).IntValue;
-                    switch (remainder) {
-                        case 0: {
-                            md = mdSha256;
+
+                    // var i_1 = new BigInteger(1, JavaUtil.ArraysCopyOf(e, 16));
+                    // var remainder = i_1.Remainder(BigInteger.ValueOf(3)).IntValue;
+
+                    HashAlgorithm? md = null;
+                    var i1 = new BigInteger(JavaUtil.ArraysCopyOf(e, 16));
+                    var remainder = (int) BigInteger.Remainder(i1, new BigInteger(3));
+                    switch (remainder)
+                    {
+                        case 0:
+                        {
+                            md = SHA256.Create();
                             break;
                         }
 
-                        case 1: {
-                            md = mdSha384;
+                        case 1:
+                        {
+                            md = SHA384.Create();
                             break;
                         }
 
-                        case 2: {
-                            md = mdSha512;
+                        case 2:
+                        {
+                            md = SHA512.Create();
                             break;
                         }
                     }
+
                     // d)
-                    k = md.Digest(e);
+                    k = md.ComputeHash(e);
                     ++roundNum;
-                    if (roundNum > 63) {
+                    if (roundNum > 63)
+                    {
                         // e)
                         // interpreting last byte as unsigned integer
                         var condVal = e[e.Length - 1] & 0xFF;
-                        if (condVal <= roundNum - 32) {
+                        if (condVal <= roundNum - 32)
+                        {
                             break;
                         }
                     }
                 }
                 k = k.Length == 32 ? k : JavaUtil.ArraysCopyOf(k, 32);
             }
-            return k;*/
-		}
+            return k;
+        }
 
-		private static bool CompareArray(byte[] a, byte[] b, int len)
+        private static bool CompareArray(byte[] a, byte[] b, int len)
 		{
 			for (var k = 0; k < len; ++k)
 			{

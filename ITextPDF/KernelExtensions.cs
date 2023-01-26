@@ -426,33 +426,6 @@ namespace IText
             return new Stack<T>(new Stack<T>(stack)); // create stack twice to retain the original order
         }
 
-        public static void Update(this object dgst, byte[] input)
-        {
-            throw new NotImplementedException();
-            //dgst.Update(input, 0, input.Length);
-        }
-
-        public static void Update(this object dgst, byte[] input, int offset, int len)
-        {
-
-            throw new NotImplementedException();
-            //dgst.BlockUpdate(input, offset, len);
-        }
-
-        public static byte[] Digest(this object dgst)
-        {
-            throw new NotImplementedException();
-
-            // var output = new byte[dgst.GetDigestSize()];
-            // dgst.DoFinal(output, 0);
-            //return output;
-        }
-
-        public static byte[] Digest(this object dgst, byte[] input)
-        {
-            dgst.Update(input);
-            return dgst.Digest();
-        }
 
         public static bool CanExecute(this FileInfo fileInfo)
         {

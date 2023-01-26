@@ -51,24 +51,24 @@ namespace IText.Kernel.Crypto.Securityhandler
 {
     public abstract class StandardSecurityHandler : SecurityHandler
     {
-        protected internal const int PERMS_MASK_1_FOR_REVISION_2 = unchecked((int) (0xffffffc0));
+        protected internal const int PermsMask1ForRevision2 = unchecked((int) (0xffffffc0));
 
-        protected internal const int PERMS_MASK_1_FOR_REVISION_3_OR_GREATER = unchecked((int) (0xfffff0c0));
+        protected internal const int PermsMask1ForRevision3OrGreater = unchecked((int) (0xfffff0c0));
 
-        protected internal const int PERMS_MASK_2 = unchecked((int) (0xfffffffc));
+        protected internal const int PermsMask2 = unchecked((int) (0xfffffffc));
 
-        protected internal long permissions;
+        protected internal long Permissions;
 
-        protected internal bool usedOwnerPassword = true;
+        protected internal bool UsedOwnerPassword = true;
 
         public virtual long GetPermissions()
         {
-            return permissions;
+            return Permissions;
         }
 
         public virtual bool IsUsedOwnerPassword()
         {
-            return usedOwnerPassword;
+            return UsedOwnerPassword;
         }
 
         protected internal virtual void SetStandardHandlerDicEntries(PdfDictionary encryptionDictionary, byte[] userKey
@@ -77,7 +77,7 @@ namespace IText.Kernel.Crypto.Securityhandler
             encryptionDictionary.Put(PdfName.Filter, PdfName.Standard);
             encryptionDictionary.Put(PdfName.O, new PdfLiteral(StreamUtil.CreateEscapedString(ownerKey)));
             encryptionDictionary.Put(PdfName.U, new PdfLiteral(StreamUtil.CreateEscapedString(userKey)));
-            encryptionDictionary.Put(PdfName.P, new PdfNumber(permissions));
+            encryptionDictionary.Put(PdfName.P, new PdfNumber(Permissions));
         }
 
         protected internal virtual byte[] GenerateOwnerPasswordIfNullOrEmpty(byte[] ownerPassword)

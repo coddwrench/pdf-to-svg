@@ -44,83 +44,75 @@ address: sales@itextpdf.com
 
 using System;
 using System.IO;
+using System.Security.Cryptography;
 
 namespace IText.Kernel.Crypto.Securityhandler
 {
-	public abstract class SecurityHandler
-	{
-		/// <summary>The global encryption key</summary>
-		protected internal byte[] mkey = new byte[0];
+    public abstract class SecurityHandler 
+    {
 
-		/// <summary>The encryption key for a particular object/generation.</summary>
-		/// <remarks>
-		/// The encryption key for a particular object/generation.
-		/// It is recalculated with
-		/// <see cref="SetHashKeyForNextObject(int, int)"/>
-		/// for every object individually based in its object/generation.
-		/// </remarks>
-		protected internal byte[] nextObjectKey;
+        /// <summary>The global encryption key</summary>
+        protected byte[] MasterKey = Array.Empty<byte>();
 
-		/// <summary>
-		/// The encryption key length for a particular object/generation
-		/// It is recalculated with
-		/// <see cref="SetHashKeyForNextObject(int, int)"/>
-		/// for every object individually based in its object/generation.
-		/// </summary>
-		protected internal int nextObjectKeySize;
+        /// <summary>Work area to prepare the object/generation bytes</summary>
+        private byte[] _extra = new byte[5];
 
-		//[NonSerialized]
-		//protected internal IDigest md5;
+        /// <summary>The encryption key for a particular object/generation.</summary>
+        /// <remarks>
+        /// The encryption key for a particular object/generation.
+        /// It is recalculated with
+        /// <see cref="SetHashKeyForNextObject(int, int)"/>
+        /// for every object individually based in its object/generation.
+        /// </remarks>
+        protected internal byte[] nextObjectKey;
 
-		/// <summary>Work area to prepare the object/generation bytes</summary>
-		protected internal byte[] extra = new byte[5];
+        /// <summary>
+        /// The encryption key length for a particular object/generation
+        /// It is recalculated with
+        /// <see cref="SetHashKeyForNextObject(int, int)"/>
+        /// for every object individually based in its object/generation.
+        /// </summary>
+        protected internal int nextObjectKeySize;
 
-		protected internal SecurityHandler()
-		{
-			SafeInitMessageDigest();
-		}
 
-		/// <summary>
-		/// Note: For most of the supported security handlers algorithm to calculate encryption key for particular object
-		/// is the same.
-		/// </summary>
-		/// <param name="objNumber">number of particular object for encryption</param>
-		/// <param name="objGeneration">generation of particular object for encryption</param>
-		public virtual void SetHashKeyForNextObject(int objNumber, int objGeneration)
-		{
-			throw new NotImplementedException();
-			// added by ujihara
-			//md5.Reset();
-			//extra[0] = (byte)objNumber;
-			//extra[1] = (byte)(objNumber >> 8);
-			//extra[2] = (byte)(objNumber >> 16);
-			//extra[3] = (byte)objGeneration;
-			//extra[4] = (byte)(objGeneration >> 8);
-			//md5.Update(mkey);
-			//md5.Update(extra);
-			//nextObjectKey = md5.Digest();
-			//nextObjectKeySize = mkey.Length + 5;
-			//if (nextObjectKeySize > 16)
-			//{
-			//	nextObjectKeySize = 16;
-			//}
-		}
+        protected internal SecurityHandler()
+        {
 
-		public abstract OutputStreamEncryption GetEncryptionStream(Stream os);
+        }
 
-		public abstract IDecryptor GetDecryptor();
+        protected byte[] Extra => _extra;
 
-		private void SafeInitMessageDigest()
-		{
-			throw new NotImplementedException();
-			try
-			{
-				//md5 = DigestUtilities.GetDigest("MD5");
-			}
-			catch (Exception e)
-			{
-				throw new PdfException(PdfException.PdfEncryption, e);
-			}
-		}
-	}
+        /// <summary>
+        /// Note: For most of the supported security handlers algorithm to calculate encryption key for particular object
+        /// is the same.
+        /// </summary>
+        /// <param name="objNumber">number of particular object for encryption</param>
+        /// <param name="objGeneration">generation of particular object for encryption</param>
+        public virtual void SetHashKeyForNextObject(int objNumber, int objGeneration)
+        {
+           
+            _extra[0] = (byte)objNumber;
+            _extra[1] = (byte)(objNumber >> 8);
+            _extra[2] = (byte)(objNumber >> 16);
+            _extra[3] = (byte)objGeneration;
+            _extra[4] = (byte)(objGeneration >> 8);
+            using var md5 = MD5.Create();
+            var tempDigest = new byte[MasterKey.Length];
+
+            md5.TransformBlock(MasterKey,0, MasterKey.Length, tempDigest,0); // md5.Update(mkey);
+            md5.TransformFinalBlock(_extra, 0, _extra.Length); // md5.Update(mkey);
+
+            nextObjectKey = md5.Hash;
+            nextObjectKeySize = MasterKey.Length + 5;
+            if (nextObjectKeySize > 16)
+            {
+                nextObjectKeySize = 16;
+            }
+        }
+
+        public abstract OutputStreamEncryption GetEncryptionStream(Stream os);
+
+        public abstract IDecryptor GetDecryptor();
+
+    }
 }

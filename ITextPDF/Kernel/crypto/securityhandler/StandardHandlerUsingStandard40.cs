@@ -44,22 +44,23 @@ address: sales@itextpdf.com
 
 using System;
 using System.IO;
+using System.Security.Cryptography;
 using IText.Kernel.Pdf;
 
 namespace IText.Kernel.Crypto.Securityhandler {
     public class StandardHandlerUsingStandard40 : StandardSecurityHandler {
-        protected internal static readonly byte[] pad = { 0x28, 0xBF, 0x4E, 0x5E
+        protected internal static readonly byte[] Pad = { 0x28, 0xBF, 0x4E, 0x5E
             , 0x4E, 0x75, 0x8A, 0x41, 0x64, 0x00, 0x4E, 0x56, 0xFF, 0xFA, 0x01, 0x08, 0x2E, 0x2E, 0x00, 0xB6, 0xD0, 
             0x68, 0x3E, 0x80, 0x2F, 0x0C, 0xA9, 0xFE, 0x64, 0x53, 0x69, 0x7A };
 
-        protected internal static readonly byte[] metadataPad = { 255, 255, 255, 255 };
+        protected internal static readonly byte[] MetadataPad = { 255, 255, 255, 255 };
 
-        protected internal byte[] documentId;
+        protected internal byte[] DocumentId;
 
         // stores key length of the main key
-        protected internal int keyLength;
+        protected internal int KeyLength;
 
-        protected internal ARCFOUREncryption arcfour = new ARCFOUREncryption();
+        protected internal ARCFOUREncryption Arcfour = new ARCFOUREncryption();
 
         public StandardHandlerUsingStandard40(PdfDictionary encryptionDictionary, byte[] userPassword, byte[] ownerPassword
             , int permissions, bool encryptMetadata, bool embeddedFilesOnly, byte[] documentId) {
@@ -86,7 +87,7 @@ namespace IText.Kernel.Crypto.Securityhandler {
             for (var i = 0; i < userPad.Length; i++) {
                 var match = true;
                 for (var j = 0; j < userPad.Length - i; j++) {
-                    if (userPad[i + j] != pad[j]) {
+                    if (userPad[i + j] != Pad[j]) {
                         match = false;
                         break;
                     }
@@ -102,50 +103,55 @@ namespace IText.Kernel.Crypto.Securityhandler {
         }
 
         protected internal virtual void CalculatePermissions(int permissions) {
-            permissions |= PERMS_MASK_1_FOR_REVISION_2;
-            permissions &= PERMS_MASK_2;
-            this.permissions = permissions;
+            permissions |= PermsMask1ForRevision2;
+            permissions &= PermsMask2;
+            this.Permissions = permissions;
         }
 
-        protected internal virtual byte[] ComputeOwnerKey(byte[] userPad, byte[] ownerPad) {
-			throw new NotImplementedException();
-            //var ownerKey = new byte[32];
-            //var digest = md5.Digest(ownerPad);
-            //arcfour.PrepareARCFOURKey(digest, 0, 5);
-            //arcfour.EncryptARCFOUR(userPad, ownerKey);
-            //return ownerKey;
+        protected internal virtual byte[] ComputeOwnerKey(byte[] userPad, byte[] ownerPad)
+        {
+            using var md5 = MD5.Create();
+            var ownerKey = new byte[32];
+            var digest = md5.ComputeHash(ownerPad);
+            Arcfour.PrepareARCFOURKey(digest, 0, 5);
+            Arcfour.EncryptARCFOUR(userPad, ownerKey);
+            return ownerKey;
         }
 
         protected internal virtual void ComputeGlobalEncryptionKey(byte[] userPad, byte[] ownerKey, bool encryptMetadata
-            ) {
-            mkey = new byte[keyLength / 8];
-            throw new NotImplementedException();
+        )
+        {
+            MasterKey = new byte[KeyLength / 8];
+            using var md5 = MD5.Create();
+            var tempDigest = new byte[userPad.Length];
+            md5.TransformBlock(userPad, 0, userPad.Length, tempDigest, 0);
+            md5.TransformBlock(ownerKey, 0, ownerKey.Length, tempDigest, 0);
 
-			// fixed by ujihara in order to follow PDF reference
-			//md5.Reset();
-			//md5.Update(userPad);
-			//md5.Update(ownerKey);
-			//var ext = new byte[4];
-			//ext[0] = (byte)permissions;
-			//ext[1] = (byte)(permissions >> 8);
-			//ext[2] = (byte)(permissions >> 16);
-			//ext[3] = (byte)(permissions >> 24);
-			//md5.Update(ext, 0, 4);
-			//if (documentId != null) {
-			//    md5.Update(documentId);
-			//}
-			//if (!encryptMetadata) {
-			//    md5.Update(metadataPad);
-			//}
-			//var digest = new byte[mkey.Length];
-			//Array.Copy(md5.Digest(), 0, digest, 0, mkey.Length);
-			//Array.Copy(digest, 0, mkey, 0, mkey.Length);
-		}
+            var ext = new byte[4];
+            ext[0] = (byte) Permissions;
+            ext[1] = (byte) (Permissions >> 8);
+            ext[2] = (byte) (Permissions >> 16);
+            ext[3] = (byte) (Permissions >> 24);
 
-		protected internal virtual byte[] ComputeUserKey() {
+            md5.TransformBlock(ext, 0, ext.Length, tempDigest, 0);
+
+            if (DocumentId != null)
+                md5.TransformBlock(DocumentId, 0, DocumentId.Length, tempDigest, 0);
+
+            if (!encryptMetadata)
+                md5.TransformBlock(MetadataPad, 0, MetadataPad.Length, tempDigest, 0);
+
+            md5.TransformFinalBlock(new byte[] { }, 0, 0);
+
+            var digest = new byte[MasterKey.Length];
+            Array.Copy(md5.Hash, 0, digest, 0, MasterKey.Length);
+            Array.Copy(digest, 0, MasterKey, 0, MasterKey.Length);
+        }
+
+        protected internal virtual byte[] ComputeUserKey() {
             var userKey = new byte[32];
-            arcfour.PrepareARCFOURKey(mkey);
-            arcfour.EncryptARCFOUR(pad, userKey);
+            Arcfour.PrepareARCFOURKey(MasterKey);
+            Arcfour.EncryptARCFOUR(Pad, userKey);
             return userKey;
         }
 
@@ -163,8 +169,8 @@ namespace IText.Kernel.Crypto.Securityhandler {
             , int permissions, bool encryptMetadata, bool embeddedFilesOnly, byte[] documentId) {
             ownerPassword = GenerateOwnerPasswordIfNullOrEmpty(ownerPassword);
             CalculatePermissions(permissions);
-            this.documentId = documentId;
-            keyLength = GetKeyLength(encryptionDictionary);
+            this.DocumentId = documentId;
+            KeyLength = GetKeyLength(encryptionDictionary);
             // PDF reference 3.5.2 Standard Security Handler, Algorithm 3.3-1
             // If there is no owner password, use the user password instead.
             var userPad = PadPassword(userPassword);
@@ -176,14 +182,16 @@ namespace IText.Kernel.Crypto.Securityhandler {
             SetSpecificHandlerDicEntries(encryptionDictionary, encryptMetadata, embeddedFilesOnly);
         }
 
-        private void InitKeyAndReadDictionary(PdfDictionary encryptionDictionary, byte[] password, byte[] documentId
+        private void InitKeyAndReadDictionary(
+            PdfDictionary encryptionDictionary, 
+            byte[] password, byte[] documentId
             , bool encryptMetadata) {
             var uValue = GetIsoBytes(encryptionDictionary.GetAsString(PdfName.U));
             var oValue = GetIsoBytes(encryptionDictionary.GetAsString(PdfName.O));
             var pValue = (PdfNumber)encryptionDictionary.Get(PdfName.P);
-            permissions = pValue.LongValue();
-            this.documentId = documentId;
-            keyLength = GetKeyLength(encryptionDictionary);
+            Permissions = pValue.LongValue();
+            this.DocumentId = documentId;
+            KeyLength = GetKeyLength(encryptionDictionary);
             var paddedPassword = PadPassword(password);
             CheckPassword(encryptMetadata, uValue, oValue, paddedPassword);
         }
@@ -203,19 +211,19 @@ namespace IText.Kernel.Crypto.Securityhandler {
                 if (IsValidPassword(uValue, userKey)) {
                     throw new BadPasswordException(PdfException.BadUserPassword);
                 }
-                usedOwnerPassword = false;
+                UsedOwnerPassword = false;
             }
         }
 
         private byte[] PadPassword(byte[] password) {
             var userPad = new byte[32];
             if (password == null) {
-                Array.Copy(pad, 0, userPad, 0, 32);
+                Array.Copy(Pad, 0, userPad, 0, 32);
             }
             else {
                 Array.Copy(password, 0, userPad, 0, Math.Min(password.Length, 32));
                 if (password.Length < 32) {
-                    Array.Copy(pad, 0, userPad, password.Length, 32 - password.Length);
+                    Array.Copy(Pad, 0, userPad, password.Length, 32 - password.Length);
                 }
             }
             return userPad;

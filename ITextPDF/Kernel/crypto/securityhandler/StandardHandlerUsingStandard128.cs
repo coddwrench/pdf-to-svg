@@ -43,6 +43,7 @@ address: sales@itextpdf.com
 */
 
 using System;
+using System.Security.Cryptography;
 using IText.Kernel.Pdf;
 
 namespace IText.Kernel.Crypto.Securityhandler {
@@ -59,82 +60,105 @@ namespace IText.Kernel.Crypto.Securityhandler {
         }
 
         protected internal override void CalculatePermissions(int permissions) {
-            permissions |= PERMS_MASK_1_FOR_REVISION_3_OR_GREATER;
-            permissions &= PERMS_MASK_2;
-            this.permissions = permissions;
+            permissions |= PermsMask1ForRevision3OrGreater;
+            permissions &= PermsMask2;
+            this.Permissions = permissions;
         }
 
         protected internal override byte[] ComputeOwnerKey(byte[] userPad, byte[] ownerPad) {
-	        throw new NotImplementedException();
 
-			//var ownerKey = new byte[32];
-			//var digest = md5.Digest(ownerPad);
-			//var mkey = new byte[keyLength / 8];
-			//// only use for the input as many bit as the key consists of
-			//for (var k = 0; k < 50; ++k) {
-			//    md5.Update(digest, 0, mkey.Length);
-			//    Array.Copy(md5.Digest(), 0, digest, 0, mkey.Length);
-			//}
-			//Array.Copy(userPad, 0, ownerKey, 0, 32);
-			//for (var i = 0; i < 20; ++i) {
-			//    for (var j = 0; j < mkey.Length; ++j) {
-			//        mkey[j] = (byte)(digest[j] ^ i);
-			//    }
-			//    arcfour.PrepareARCFOURKey(mkey);
-			//    arcfour.EncryptARCFOUR(ownerKey);
-			//}
-			//return ownerKey;
-		}
+            var ownerKey = new byte[32];
+            using var md5 = MD5.Create();
+            var digest = md5.ComputeHash(ownerPad);
+            var mkey = new byte[KeyLength / 8];
+            
+            // only use for the input as many bit as the key consists of
+            for (var k = 0; k < 50; ++k)
+            {
+                var newDigest = md5.ComputeHash(digest);
+                Array.Copy(newDigest, 0, digest, 0, mkey.Length);
+            }
 
-		protected internal override void ComputeGlobalEncryptionKey(byte[] userPad, byte[] ownerKey, bool encryptMetadata
-            ) {
-	        throw new NotImplementedException();
+            Array.Copy(userPad, 0, ownerKey, 0, 32);
+            for (var i = 0; i < 20; ++i)
+            {
+                for (var j = 0; j < mkey.Length; ++j)
+                {
+                    mkey[j] = (byte)(digest[j] ^ i);
+                }
+                Arcfour.PrepareARCFOURKey(mkey);
+                Arcfour.EncryptARCFOUR(ownerKey);
+            }
+            return ownerKey;
+        }
 
-			//mkey = new byte[keyLength / 8];
-   //         // fixed by ujihara in order to follow PDF reference
-   //         md5.Reset();
-   //         md5.Update(userPad);
-   //         md5.Update(ownerKey);
-   //         var ext = new byte[4];
-   //         ext[0] = (byte)permissions;
-   //         ext[1] = (byte)(permissions >> 8);
-   //         ext[2] = (byte)(permissions >> 16);
-   //         ext[3] = (byte)(permissions >> 24);
-   //         md5.Update(ext, 0, 4);
-   //         if (documentId != null) {
-   //             md5.Update(documentId);
-   //         }
-   //         if (!encryptMetadata) {
-   //             md5.Update(metadataPad);
-   //         }
-   //         var digest = new byte[mkey.Length];
-   //         Array.Copy(md5.Digest(), 0, digest, 0, mkey.Length);
-   //         // only use the really needed bits as input for the hash
-   //         for (var k = 0; k < 50; ++k) {
-   //             Array.Copy(md5.Digest(digest), 0, digest, 0, mkey.Length);
-   //         }
-   //         Array.Copy(digest, 0, mkey, 0, mkey.Length);
+        protected internal override void ComputeGlobalEncryptionKey(byte[] userPad, byte[] ownerKey,
+            bool encryptMetadata
+        )
+        {
+            using var md5 = MD5.Create();
+
+            MasterKey = new byte[KeyLength / 8];
+
+            var tempDigest = new byte[userPad.Length];
+            md5.TransformBlock(userPad, 0, userPad.Length, tempDigest, 0);
+            md5.TransformBlock(ownerKey, 0, ownerKey.Length, tempDigest, 0);
+
+            var ext = new byte[4];
+            ext[0] = (byte) Permissions;
+            ext[1] = (byte) (Permissions >> 8);
+            ext[2] = (byte) (Permissions >> 16);
+            ext[3] = (byte) (Permissions >> 24);
+
+            md5.TransformBlock(ext, 0, ext.Length, tempDigest, 0);
+
+            if (DocumentId != null)
+                md5.TransformBlock(DocumentId, 0, DocumentId.Length, tempDigest, 0);
+
+            if (!encryptMetadata)
+                md5.TransformBlock(MetadataPad, 0, MetadataPad.Length, tempDigest, 0);
+
+            md5.TransformFinalBlock(new byte[] { }, 0, 0);
+
+            var digest = new byte[MasterKey.Length];
+            Array.Copy(md5.Hash, 0, digest, 0, MasterKey.Length);
+            // only use the really needed bits as input for the hash
+            for (var k = 0; k < 50; ++k)
+            {
+                var newDigest = md5.ComputeHash(digest);
+                Array.Copy(newDigest, 0, digest, 0, MasterKey.Length);
+            }
+
+            Array.Copy(digest, 0, MasterKey, 0, MasterKey.Length);
         }
 
         protected internal override byte[] ComputeUserKey() {
-	        throw new NotImplementedException();
 
-			//var userKey = new byte[32];
-			//md5.Update(pad);
-			//var digest = md5.Digest(documentId);
-			//Array.Copy(digest, 0, userKey, 0, 16);
-			//for (var k = 16; k < 32; ++k) {
-			//    userKey[k] = 0;
-			//}
-			//for (var i = 0; i < 20; ++i) {
-			//    for (var j = 0; j < mkey.Length; ++j) {
-			//        digest[j] = (byte)(mkey[j] ^ i);
-			//    }
-			//    arcfour.PrepareARCFOURKey(digest, 0, mkey.Length);
-			//    arcfour.EncryptARCFOUR(userKey, 0, 16);
-			//}
-			//return userKey;
-		}
+            using var md5 = MD5.Create();
+
+            var userKey = new byte[32];
+
+            var tempDigest = new byte[Pad.Length];
+            md5.TransformBlock(Pad, 0, Pad.Length, tempDigest, 0);
+            md5.TransformFinalBlock(DocumentId, 0, DocumentId.Length);
+            var digest = md5.Hash;
+            
+            Array.Copy(digest, 0, userKey, 0, 16);
+            for (var k = 16; k < 32; ++k)
+            {
+                userKey[k] = 0;
+            }
+            for (var i = 0; i < 20; ++i)
+            {
+                for (var j = 0; j < MasterKey.Length; ++j)
+                {
+                    digest[j] = (byte)(MasterKey[j] ^ i);
+                }
+                Arcfour.PrepareARCFOURKey(digest, 0, MasterKey.Length);
+                Arcfour.EncryptARCFOUR(userKey, 0, 16);
+            }
+            return userKey;
+        }
 
 		protected internal override void SetSpecificHandlerDicEntries(PdfDictionary encryptionDictionary, bool encryptMetadata
             , bool embeddedFilesOnly) {

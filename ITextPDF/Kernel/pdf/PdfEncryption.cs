@@ -63,8 +63,6 @@ namespace IText.Kernel.Pdf {
 
         private const int AES_256 = 5;
 
-        private static long seq = SystemUtil.GetTimeBasedSeed();
-
         private int cryptoMode;
 
         private long? permissions;
@@ -140,23 +138,31 @@ namespace IText.Kernel.Pdf {
         /// of the target document for encryption
         /// </param>
         public PdfEncryption(byte[] userPassword, byte[] ownerPassword, int permissions, int encryptionType, byte[]
-             documentId, PdfVersion version)
-            : base(new PdfDictionary()) {
+            documentId, PdfVersion version)
+            : base(new PdfDictionary())
+        {
             this.documentId = documentId;
-            if (version != null && version.CompareTo(PdfVersion.PDF_2_0) >= 0) {
+            if (version != null && version.CompareTo(PdfVersion.PDF_2_0) >= 0)
+            {
                 permissions = FixAccessibilityPermissionPdf20(permissions);
             }
+
             var revision = SetCryptoMode(encryptionType);
-            switch (revision) {
-                case STANDARD_ENCRYPTION_40: {
-                    var handlerStd40 = new StandardHandlerUsingStandard40(GetPdfObject(), userPassword
-                        , ownerPassword, permissions, encryptMetadata, embeddedFilesOnly, documentId);
+            switch (revision)
+            {
+                case STANDARD_ENCRYPTION_40:
+                {
+                    var handlerStd40 =
+                        new StandardHandlerUsingStandard40(GetPdfObject(),
+                            userPassword, ownerPassword,
+                            permissions, encryptMetadata, embeddedFilesOnly, documentId);
                     this.permissions = handlerStd40.GetPermissions();
                     securityHandler = handlerStd40;
                     break;
                 }
 
-                case STANDARD_ENCRYPTION_128: {
+                case STANDARD_ENCRYPTION_128:
+                {
                     var handlerStd128 = new StandardHandlerUsingStandard128(GetPdfObject(), userPassword
                         , ownerPassword, permissions, encryptMetadata, embeddedFilesOnly, documentId);
                     this.permissions = handlerStd128.GetPermissions();
@@ -164,7 +170,8 @@ namespace IText.Kernel.Pdf {
                     break;
                 }
 
-                case AES_128: {
+                case AES_128:
+                {
                     var handlerAes128 = new StandardHandlerUsingAes128(GetPdfObject(), userPassword
                         , ownerPassword, permissions, encryptMetadata, embeddedFilesOnly, documentId);
                     this.permissions = handlerAes128.GetPermissions();
@@ -172,7 +179,8 @@ namespace IText.Kernel.Pdf {
                     break;
                 }
 
-                case AES_256: {
+                case AES_256:
+                {
                     var handlerAes256 = new StandardHandlerUsingAes256(GetPdfObject(), userPassword
                         , ownerPassword, permissions, encryptMetadata, embeddedFilesOnly, version);
                     this.permissions = handlerAes256.GetPermissions();
