@@ -86,7 +86,7 @@ namespace IText.Kernel.Pdf.Canvas.Parser.Listener {
                 else {
                     if (!firstRender) {
                         // we only insert a blank space if the trailing character of the previous string wasn't a space, and the leading character of the current string isn't a space
-                        if (result[result.Length - 1] != ' ' && renderInfo.GetText().Length > 0 && renderInfo.GetText()[0] != ' ') {
+                        if (result[result.Length - 1] != ' ' && renderInfo.Text.Length > 0 && renderInfo.Text[0] != ' ') {
                             var spacing = lastEnd.Subtract(start).Length();
                             if (spacing > renderInfo.GetSingleSpaceWidth() / 2f) {
                                 AppendTextChunk(" ");
@@ -97,7 +97,7 @@ namespace IText.Kernel.Pdf.Canvas.Parser.Listener {
                 //System.out.println("Inserting implied space before '" + renderInfo.getText() + "'");
                 //System.out.println("Displaying first string of content '" + text + "' :: x1 = " + x1);
                 //System.out.println("[" + renderInfo.getStartPoint() + "]->[" + renderInfo.getEndPoint() + "] " + renderInfo.getText());
-                AppendTextChunk(renderInfo.GetText());
+                AppendTextChunk(renderInfo.Text);
                 lastStart = start;
                 lastEnd = end;
             }

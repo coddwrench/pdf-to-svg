@@ -113,7 +113,7 @@ namespace IText.Kernel.Pdf.Canvas.Parser.Listener {
         }
 
         public CharacterRenderInfo(TextRenderInfo tri)
-            : base(tri == null ? "" : tri.GetText(), tri == null ? null : GetLocation(tri)) {
+            : base(tri == null ? "" : tri.Text, tri == null ? null : GetLocation(tri)) {
             if (tri == null) {
                 throw new ArgumentException("TextRenderInfo argument is not nullable.");
             }

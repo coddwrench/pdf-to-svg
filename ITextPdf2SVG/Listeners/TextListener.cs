@@ -113,7 +113,7 @@ namespace ITextPdf2SVG.Listeners
 
             foreach (var textRenderInfo in renderInfo.GetCharacterRenderInfos())
             {
-                var letter = textRenderInfo.GetText();
+                var letter = textRenderInfo.Text();
                 var x = textRenderInfo.GetDescentLine()
                     .GetStartPoint()
                     .Get(Vector.I1);

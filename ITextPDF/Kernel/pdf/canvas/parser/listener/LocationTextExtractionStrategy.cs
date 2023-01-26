@@ -174,14 +174,14 @@ namespace IText.Kernel.Pdf.Canvas.Parser.Listener
 					else
 					{
 						var actualText = renderInfo.GetActualText();
-						var tc = new TextChunk(actualText != null ? actualText : renderInfo.GetText(), tclStrat.CreateLocation
+						var tc = new TextChunk(actualText != null ? actualText : renderInfo.Text, tclStrat.CreateLocation
 							(renderInfo, segment));
 						locationalResult.Add(tc);
 					}
 				}
 				else
 				{
-					var tc = new TextChunk(renderInfo.GetText(), tclStrat.CreateLocation(renderInfo, segment));
+					var tc = new TextChunk(renderInfo.Text, tclStrat.CreateLocation(renderInfo, segment));
 					locationalResult.Add(tc);
 				}
 				lastTextRenderInfo = renderInfo;

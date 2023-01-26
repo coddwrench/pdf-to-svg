@@ -124,34 +124,39 @@ namespace IText.Kernel.Pdf.Canvas.Parser.Data
 
         /// <summary>Gets the text to be rendered according to canvas operators.</summary>
         /// <returns>the text to render</returns>
-        public virtual string GetText()
+        public virtual string Text
         {
-            CheckGraphicsState();
-            if (_textCache == null)
+            get
             {
-                var gl = gs
-                    .GetFont()
-                    .DecodeIntoGlyphLine(_string);
+                CheckGraphicsState();
+                if (_textCache == null)
+                {
+                    var gl = gs
+                        .GetFont()
+                        .DecodeIntoGlyphLine(_string);
 
-                if (!IsReversedChars())
-                {
-                    _textCache = gl.ToUnicodeString(gl.start, gl.end);
-                }
-                else
-                {
-                    var sb = new StringBuilder(gl.end - gl.start);
-                    for (var i = gl.end - 1; i >= gl.start; i--)
+                    if (!IsReversedChars())
                     {
-                        sb.Append(gl.Get(i).GetUnicodeChars());
+                        _textCache = gl.ToUnicodeString(gl.start, gl.end);
                     }
+                    else
+                    {
+                        var sb = new StringBuilder(gl.end - gl.start);
+                        for (var i = gl.end - 1; i >= gl.start; i--)
+                        {
+                            sb.Append(gl.Get(i).GetUnicodeChars());
+                        }
 
-                    _textCache = sb.ToString();
+                        _textCache = sb.ToString();
+                    }
                 }
-            }
 
-            return _textCache;
+                return _textCache;
+            }
         }
 
+
+    
         /// <returns>original PDF string</returns>
         public virtual PdfString GetPdfString()
         {
