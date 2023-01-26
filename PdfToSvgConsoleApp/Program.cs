@@ -41,7 +41,7 @@ class Program
             return;
         }
 
-        dirOutput = Path.Combine(dirOutput, Path.GetFileNameWithoutExtension(fileInput));
+        dirOutput = Path.Combine(dirOutput!, Path.GetFileNameWithoutExtension(fileInput));
 
         if (Directory.Exists(dirOutput) && Directory.EnumerateFiles(dirOutput).Any())
         {
@@ -57,7 +57,7 @@ class Program
         Close();
     }
 
-    static bool ValidateOutputDirectory(string directoryPath)
+    static bool ValidateOutputDirectory(string? directoryPath)
     {
         if (string.IsNullOrWhiteSpace(directoryPath))
         {
