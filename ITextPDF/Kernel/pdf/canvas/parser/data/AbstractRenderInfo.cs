@@ -48,7 +48,7 @@ namespace IText.Kernel.Pdf.Canvas.Parser.Data {
     public class AbstractRenderInfo : IEventData {
         protected internal CanvasGraphicsState gs;
 
-        private bool graphicsStateIsPreserved;
+        private bool _graphicsStateIsPreserved;
 
         public AbstractRenderInfo(CanvasGraphicsState gs) {
             this.gs = gs;
@@ -56,21 +56,21 @@ namespace IText.Kernel.Pdf.Canvas.Parser.Data {
 
         public virtual CanvasGraphicsState GetGraphicsState() {
             CheckGraphicsState();
-            return graphicsStateIsPreserved ? gs : new CanvasGraphicsState(gs);
+            return _graphicsStateIsPreserved ? gs : new CanvasGraphicsState(gs);
         }
 
         public virtual bool IsGraphicsStatePreserved() {
-            return graphicsStateIsPreserved;
+            return _graphicsStateIsPreserved;
         }
 
         public virtual void PreserveGraphicsState() {
             CheckGraphicsState();
-            graphicsStateIsPreserved = true;
+            _graphicsStateIsPreserved = true;
             gs = new CanvasGraphicsState(gs);
         }
 
         public virtual void ReleaseGraphicsState() {
-            if (!graphicsStateIsPreserved) {
+            if (!_graphicsStateIsPreserved) {
                 gs = null;
             }
         }
