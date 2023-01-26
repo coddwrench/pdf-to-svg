@@ -87,7 +87,7 @@ namespace IText.Kernel.Pdf.Canvas.Parser.Data {
         /// instance.
         /// </summary>
         /// <param name="canvasTagHierarchy">the canvas tag hierarchy</param>
-        /// <param name="gs">the graphics state</param>
+        /// <param name="graphicsState">the graphics state</param>
         /// <param name="path">the path to be rendered</param>
         /// <param name="operation">
         /// one of the possible combinations of
@@ -114,9 +114,9 @@ namespace IText.Kernel.Pdf.Canvas.Parser.Data {
         /// or
         /// <see cref="PdfCanvasConstants.FillingRule.EVEN_ODD"/>
         /// </param>
-        public PathRenderInfo(Stack<CanvasTag> canvasTagHierarchy, CanvasGraphicsState gs, Path path, int operation
+        public PathRenderInfo(Stack<CanvasTag> canvasTagHierarchy, CanvasGraphicsState graphicsState, Path path, int operation
             , int rule, bool isClip, int clipRule)
-            : base(gs) {
+            : base(graphicsState) {
             this.canvasTagHierarchy = JavaCollectionsUtil.UnmodifiableList<CanvasTag>(new List<CanvasTag>(canvasTagHierarchy
                 ));
             this.path = path;
@@ -148,7 +148,7 @@ namespace IText.Kernel.Pdf.Canvas.Parser.Data {
         ///     "/>
         /// </remarks>
         /// <param name="canvasTagHierarchy">the canvas tag hierarchy</param>
-        /// <param name="gs">the graphics state</param>
+        /// <param name="graphicsState">the graphics state</param>
         /// <param name="path">the path to be rendered</param>
         /// <param name="operation">
         /// one of the possible combinations of
@@ -158,9 +158,9 @@ namespace IText.Kernel.Pdf.Canvas.Parser.Data {
         /// values or
         /// <see cref="NO_OP"/>
         /// </param>
-        public PathRenderInfo(Stack<CanvasTag> canvasTagHierarchy, CanvasGraphicsState gs, Path path, int operation
+        public PathRenderInfo(Stack<CanvasTag> canvasTagHierarchy, CanvasGraphicsState graphicsState, Path path, int operation
             )
-            : this(canvasTagHierarchy, gs, path, operation, PdfCanvasConstants.FillingRule.NONZERO_WINDING, false, PdfCanvasConstants.FillingRule
+            : this(canvasTagHierarchy, graphicsState, path, operation, PdfCanvasConstants.FillingRule.NONZERO_WINDING, false, PdfCanvasConstants.FillingRule
                 .NONZERO_WINDING) {
         }
 
@@ -233,14 +233,14 @@ namespace IText.Kernel.Pdf.Canvas.Parser.Data {
         /// </returns>
         public virtual Matrix GetCtm() {
             CheckGraphicsState();
-            return Gs.GetCtm();
+            return GraphicsState.GetCtm();
         }
 
         /// <summary>Gets the path's line width.</summary>
         /// <returns>the path's line width</returns>
         public virtual float GetLineWidth() {
             CheckGraphicsState();
-            return Gs.GetLineWidth();
+            return GraphicsState.GetLineWidth();
         }
 
         /// <summary>Gets the line cap style.</summary>
@@ -251,7 +251,7 @@ namespace IText.Kernel.Pdf.Canvas.Parser.Data {
         /// <returns>the line cap style value</returns>
         public virtual int GetLineCapStyle() {
             CheckGraphicsState();
-            return Gs.GetLineCapStyle();
+            return GraphicsState.GetLineCapStyle();
         }
 
         /// <summary>Gets the line join style.</summary>
@@ -262,14 +262,14 @@ namespace IText.Kernel.Pdf.Canvas.Parser.Data {
         /// <returns>the line join style value</returns>
         public virtual int GetLineJoinStyle() {
             CheckGraphicsState();
-            return Gs.GetLineJoinStyle();
+            return GraphicsState.GetLineJoinStyle();
         }
 
         /// <summary>Gets the miter limit.</summary>
         /// <returns>the miter limit</returns>
         public virtual float GetMiterLimit() {
             CheckGraphicsState();
-            return Gs.GetMiterLimit();
+            return GraphicsState.GetMiterLimit();
         }
 
         /// <summary>Gets the path's dash pattern.</summary>
@@ -279,7 +279,7 @@ namespace IText.Kernel.Pdf.Canvas.Parser.Data {
         /// </returns>
         public virtual PdfArray GetLineDashPattern() {
             CheckGraphicsState();
-            return Gs.GetDashPattern();
+            return GraphicsState.GetDashPattern();
         }
 
         /// <summary>Gets the path's stroke color.</summary>
@@ -289,7 +289,7 @@ namespace IText.Kernel.Pdf.Canvas.Parser.Data {
         /// </returns>
         public virtual Color GetStrokeColor() {
             CheckGraphicsState();
-            return Gs.GetStrokeColor();
+            return GraphicsState.GetStrokeColor();
         }
 
         /// <summary>Gets the path's fill color.</summary>
@@ -299,7 +299,7 @@ namespace IText.Kernel.Pdf.Canvas.Parser.Data {
         /// </returns>
         public virtual Color GetFillColor() {
             CheckGraphicsState();
-            return Gs.GetFillColor();
+            return GraphicsState.GetFillColor();
         }
 
         /// <summary>Gets hierarchy of the canvas tags that wraps given text.</summary>

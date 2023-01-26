@@ -48,6 +48,6 @@ namespace IText.Kernel.Pdf.Canvas.Parser.Data {
     /// parameters required for different types of events.
     /// </summary>
     public interface IEventData {
-        CanvasGraphicsState GetGraphicsState();
+        CanvasGraphicsState? GetGraphicsState();
     }
 }

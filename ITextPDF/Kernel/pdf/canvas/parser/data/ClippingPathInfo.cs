@@ -56,7 +56,7 @@ namespace IText.Kernel.Pdf.Canvas.Parser.Data {
         /// <see cref="ClippingPathInfo"/>
         /// instance.
         /// </summary>
-        /// <param name="gs">
+        /// <param name="graphicsState">
         /// the
         /// <see cref="CanvasGraphicsState">canvas graphics state</see>
         /// </param>
@@ -69,8 +69,8 @@ namespace IText.Kernel.Pdf.Canvas.Parser.Data {
         /// the current
         /// <see cref="Matrix">transformation matrix</see>
         /// </param>
-        public ClippingPathInfo(CanvasGraphicsState gs, Path path, Matrix ctm)
-            : base(gs) {
+        public ClippingPathInfo(CanvasGraphicsState graphicsState, Path path, Matrix ctm)
+            : base(graphicsState) {
             this.path = path;
             this.ctm = ctm;
         }

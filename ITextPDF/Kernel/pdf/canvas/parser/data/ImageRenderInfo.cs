@@ -72,7 +72,7 @@ namespace IText.Kernel.Pdf.Canvas.Parser.Data {
         /// the hierarchy of nested canvas tags for the text from the most
         /// inner (nearest to text) tag to the most outer
         /// </param>
-        /// <param name="gs">
+        /// <param name="graphicsState">
         /// the
         /// <see cref="CanvasGraphicsState">canvas graphics state</see>
         /// </param>
@@ -86,9 +86,9 @@ namespace IText.Kernel.Pdf.Canvas.Parser.Data {
         /// <param name="colorSpaceDictionary">the color space dictionary from resources which are associated with the image
         ///     </param>
         /// <param name="isInline">defines if the encountered image was inline</param>
-        public ImageRenderInfo(Stack<CanvasTag> canvasTagHierarchy, CanvasGraphicsState gs, Matrix ctm, PdfStream 
+        public ImageRenderInfo(Stack<CanvasTag> canvasTagHierarchy, CanvasGraphicsState graphicsState, Matrix ctm, PdfStream 
             imageStream, PdfName resourceName, PdfDictionary colorSpaceDictionary, bool isInline)
-            : base(gs) {
+            : base(graphicsState) {
             this.canvasTagHierarchy = JavaCollectionsUtil.UnmodifiableList<CanvasTag>(new List<CanvasTag>(canvasTagHierarchy
                 ));
             this.resourceName = resourceName;

@@ -89,19 +89,19 @@ namespace IText.Kernel.Pdf.Canvas.Parser.Data
 
         /// <summary>Creates a new TextRenderInfo object</summary>
         /// <param name="str">the PDF string that should be displayed</param>
-        /// <param name="gs">the graphics state (note: at this time, this is not immutable, so don't cache it)</param>
+        /// <param name="graphicsState">the graphics state (note: at this time, this is not immutable, so don't cache it)</param>
         /// <param name="textMatrix">the text matrix at the time of the render operation</param>
         /// <param name="canvasTagHierarchy">the marked content tags sequence, if available</param>
         public TextRenderInfo(
             PdfString str,
-            CanvasGraphicsState gs,
+            CanvasGraphicsState graphicsState,
             Matrix textMatrix,
             Stack<CanvasTag> canvasTagHierarchy
         )
-            : base(gs)
+            : base(graphicsState)
         {
             _string = str;
-            _textToUserSpaceTransformMatrix = textMatrix.Multiply(gs.GetCtm());
+            _textToUserSpaceTransformMatrix = textMatrix.Multiply(graphicsState.GetCtm());
             _textMatrix = textMatrix;
             _canvasTagHierarchy = JavaCollectionsUtil.UnmodifiableList<CanvasTag>(new List<CanvasTag>(canvasTagHierarchy
             ));
@@ -116,7 +116,7 @@ namespace IText.Kernel.Pdf.Canvas.Parser.Data
             PdfString str,
             float horizontalOffset
         )
-            : base(parent.Gs)
+            : base(parent.GraphicsState)
         {
             _string = str;
             var offsetMatrix = new Matrix(horizontalOffset, 0);
@@ -135,7 +135,7 @@ namespace IText.Kernel.Pdf.Canvas.Parser.Data
                 if (_textCache != null) 
                     return _textCache;
 
-                var gl = Gs
+                var gl = GraphicsState
                     .GetFont()
                     .DecodeIntoGlyphLine(_string);
 
@@ -246,13 +246,13 @@ namespace IText.Kernel.Pdf.Canvas.Parser.Data
         public virtual LineSegment GetBaseline()
         {
             CheckGraphicsState();
-            return GetUnscaledBaselineWithOffset(0 + Gs.GetTextRise()).TransformBy(_textToUserSpaceTransformMatrix);
+            return GetUnscaledBaselineWithOffset(0 + GraphicsState.GetTextRise()).TransformBy(_textToUserSpaceTransformMatrix);
         }
 
         public virtual LineSegment GetUnscaledBaseline()
         {
             CheckGraphicsState();
-            return GetUnscaledBaselineWithOffset(0 + Gs.GetTextRise());
+            return GetUnscaledBaselineWithOffset(0 + GraphicsState.GetTextRise());
         }
 
         /// <summary>Gets the ascent line for the text (i.e. the line that represents the topmost extent that a string of the current font could have).
@@ -269,7 +269,7 @@ namespace IText.Kernel.Pdf.Canvas.Parser.Data
             get
             {
                 CheckGraphicsState();
-                return GetUnscaledBaselineWithOffset(GetAscentDescent()[0] + Gs.GetTextRise()).TransformBy(
+                return GetUnscaledBaselineWithOffset(GetAscentDescent()[0] + GraphicsState.GetTextRise()).TransformBy(
                     _textToUserSpaceTransformMatrix
                 );
             }
@@ -289,7 +289,7 @@ namespace IText.Kernel.Pdf.Canvas.Parser.Data
             get
             {
                 CheckGraphicsState();
-                return GetUnscaledBaselineWithOffset(GetAscentDescent()[1] + Gs.GetTextRise()).TransformBy(
+                return GetUnscaledBaselineWithOffset(GetAscentDescent()[1] + GraphicsState.GetTextRise()).TransformBy(
                     _textToUserSpaceTransformMatrix
                 );
             }
@@ -302,7 +302,7 @@ namespace IText.Kernel.Pdf.Canvas.Parser.Data
             get
             {
                 CheckGraphicsState();
-                return Gs.GetFont();
+                return GraphicsState.GetFont();
             }
         }
 
@@ -322,12 +322,12 @@ namespace IText.Kernel.Pdf.Canvas.Parser.Data
         {
             CheckGraphicsState();
             // optimize the common case
-            if (Gs.GetTextRise() == 0)
+            if (GraphicsState.GetTextRise() == 0)
             {
                 return 0;
             }
 
-            return ConvertHeightFromTextSpaceToUserSpace(Gs.GetTextRise());
+            return ConvertHeightFromTextSpaceToUserSpace(GraphicsState.GetTextRise());
         }
 
         /// <summary>Provides detail useful if a listener needs access to the position of each individual glyph in the text render operation
@@ -352,8 +352,8 @@ namespace IText.Kernel.Pdf.Canvas.Parser.Data
                         (this, str, totalWidth);
                     reuslt.Add(subInfo);
                     totalWidth +=
-                        (widthAndWordSpacing[0] * Gs.GetFontSize() + Gs.GetCharSpacing() + widthAndWordSpacing[1]) *
-                        (Gs.GetHorizontalScaling() / 100f);
+                        (widthAndWordSpacing[0] * GraphicsState.GetFontSize() + GraphicsState.GetCharSpacing() + widthAndWordSpacing[1]) *
+                        (GraphicsState.GetHorizontalScaling() / 100f);
                 }
 
                 foreach (var tri in reuslt)
@@ -396,51 +396,51 @@ namespace IText.Kernel.Pdf.Canvas.Parser.Data
         public virtual int GetTextRenderMode()
         {
             CheckGraphicsState();
-            return Gs.GetTextRenderingMode();
+            return GraphicsState.GetTextRenderingMode();
         }
 
         /// <returns>the current fill color.</returns>
         public virtual Color GetFillColor()
         {
             CheckGraphicsState();
-            return Gs.GetFillColor();
+            return GraphicsState.GetFillColor();
         }
 
         /// <returns>the current stroke color.</returns>
         public virtual Color GetStrokeColor()
         {
             CheckGraphicsState();
-            return Gs.GetStrokeColor();
+            return GraphicsState.GetStrokeColor();
         }
 
         public virtual float GetFontSize()
         {
             CheckGraphicsState();
-            return Gs.GetFontSize();
+            return GraphicsState.GetFontSize();
         }
 
         public virtual float GetHorizontalScaling()
         {
             CheckGraphicsState();
-            return Gs.GetHorizontalScaling();
+            return GraphicsState.GetHorizontalScaling();
         }
 
         public virtual float GetCharSpacing()
         {
             CheckGraphicsState();
-            return Gs.GetCharSpacing();
+            return GraphicsState.GetCharSpacing();
         }
 
         public virtual float GetWordSpacing()
         {
             CheckGraphicsState();
-            return Gs.GetWordSpacing();
+            return GraphicsState.GetWordSpacing();
         }
 
         public virtual float GetLeading()
         {
             CheckGraphicsState();
-            return Gs.GetLeading();
+            return GraphicsState.GetLeading();
         }
 
         /// <summary>Gets /ActualText tag entry value if this text chunk is marked content.</summary>
@@ -524,11 +524,11 @@ namespace IText.Kernel.Pdf.Canvas.Parser.Data
             // we need to correct the width so we don't have an extra character and word spaces at the end.  The extra character and word spaces
             // are important for tracking relative text coordinate systems, but should not be part of the baseline
             var unicodeStr = _string.ToUnicodeString();
-            var correctedUnscaledWidth = GetUnscaledWidth() - (Gs.GetCharSpacing() + (unicodeStr.Length > 0 &&
+            var correctedUnscaledWidth = GetUnscaledWidth() - (GraphicsState.GetCharSpacing() + (unicodeStr.Length > 0 &&
                 unicodeStr
                     [unicodeStr.Length - 1] == ' '
-                    ? Gs.GetWordSpacing()
-                    : 0)) * (Gs.GetHorizontalScaling() / 100f);
+                    ? GraphicsState.GetWordSpacing()
+                    : 0)) * (GraphicsState.GetHorizontalScaling() / 100f);
             return new LineSegment(new Vector(0, yOffset, 1), new Vector(correctedUnscaledWidth, yOffset, 1));
         }
 
@@ -556,14 +556,14 @@ namespace IText.Kernel.Pdf.Canvas.Parser.Data
         {
             CheckGraphicsState();
             var spaceChar = ' ';
-            var charWidth = Gs.GetFont().GetWidth(spaceChar);
+            var charWidth = GraphicsState.GetFont().GetWidth(spaceChar);
             if (charWidth == 0)
             {
-                charWidth = Gs.GetFont().GetFontProgram().GetAvgWidth();
+                charWidth = GraphicsState.GetFont().GetFontProgram().GetAvgWidth();
             }
 
             var w = (float) ((double) charWidth / FontProgram.UNITS_NORMALIZATION);
-            return (w * Gs.GetFontSize() + Gs.GetCharSpacing() + Gs.GetWordSpacing()) * Gs.GetHorizontalScaling() /
+            return (w * GraphicsState.GetFontSize() + GraphicsState.GetCharSpacing() + GraphicsState.GetWordSpacing()) * GraphicsState.GetHorizontalScaling() /
                    100f;
         }
 
@@ -576,8 +576,8 @@ namespace IText.Kernel.Pdf.Canvas.Parser.Data
             if (singleCharString)
             {
                 var widthAndWordSpacing = GetWidthAndWordSpacing(@string);
-                return (float) ((widthAndWordSpacing[0] * (double) Gs.GetFontSize() + Gs.GetCharSpacing() +
-                                 widthAndWordSpacing[1]) * Gs.GetHorizontalScaling() / 100f);
+                return (float) ((widthAndWordSpacing[0] * (double) GraphicsState.GetFontSize() + GraphicsState.GetCharSpacing() +
+                                 widthAndWordSpacing[1]) * GraphicsState.GetHorizontalScaling() / 100f);
             }
 
             float totalWidth = 0;
@@ -600,8 +600,8 @@ namespace IText.Kernel.Pdf.Canvas.Parser.Data
         {
             CheckGraphicsState();
             var result = new float[2];
-            result[0] = (float) ((double) Gs.GetFont().GetContentWidth(@string) / FontProgram.UNITS_NORMALIZATION);
-            result[1] = " ".Equals(@string.GetValue()) ? Gs.GetWordSpacing() : 0;
+            result[0] = (float) ((double) GraphicsState.GetFont().GetContentWidth(@string) / FontProgram.UNITS_NORMALIZATION);
+            result[1] = " ".Equals(@string.GetValue()) ? GraphicsState.GetWordSpacing() : 0;
             return result;
         }
 
@@ -640,15 +640,15 @@ namespace IText.Kernel.Pdf.Canvas.Parser.Data
         private PdfString[] SplitString(PdfString @string)
         {
             CheckGraphicsState();
-            var font = Gs.GetFont();
+            var font = GraphicsState.GetFont();
             if (font is PdfType0Font)
             {
                 // Number of bytes forming one glyph can be arbitrary from [1; 4] range
                 IList<PdfString> strings = new List<PdfString>();
-                var glyphLine = Gs.GetFont().DecodeIntoGlyphLine(@string);
+                var glyphLine = GraphicsState.GetFont().DecodeIntoGlyphLine(@string);
                 for (var i = glyphLine.start; i < glyphLine.end; i++)
                 {
-                    strings.Add(new PdfString(Gs.GetFont().ConvertToBytes(glyphLine.Get(i))));
+                    strings.Add(new PdfString(GraphicsState.GetFont().ConvertToBytes(glyphLine.Get(i))));
                 }
 
                 return strings.ToArray(new PdfString[strings.Count]);
@@ -669,8 +669,8 @@ namespace IText.Kernel.Pdf.Canvas.Parser.Data
         private float[] GetAscentDescent()
         {
             CheckGraphicsState();
-            float ascent = Gs.GetFont().GetFontProgram().GetFontMetrics().GetTypoAscender();
-            float descent = Gs.GetFont().GetFontProgram().GetFontMetrics().GetTypoDescender();
+            float ascent = GraphicsState.GetFont().GetFontProgram().GetFontMetrics().GetTypoAscender();
+            float descent = GraphicsState.GetFont().GetFontProgram().GetFontMetrics().GetTypoDescender();
             // If descent is positive, we consider it a bug and fix it
             if (descent > 0)
             {
@@ -678,8 +678,8 @@ namespace IText.Kernel.Pdf.Canvas.Parser.Data
             }
 
             var scale = ascent - descent < 700 ? ascent - descent : 1000;
-            descent = descent / scale * Gs.GetFontSize();
-            ascent = ascent / scale * Gs.GetFontSize();
+            descent = descent / scale * GraphicsState.GetFontSize();
+            ascent = ascent / scale * GraphicsState.GetFontSize();
             return new[] {ascent, descent};
         }
     }
